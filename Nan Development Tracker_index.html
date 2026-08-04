@@ -1,0 +1,3203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Development Tracker — Meeting Minutes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#22303C; --ink-soft:#5B6975; --paper:#F1F0EA; --card:#FFFFFF;
+  --line:#D8D4C8; --line-soft:#E9E6DD;
+  --teal:#16706C; --teal-dark:#0E5450; --teal-tint:#E3EFEE;
+  --red:#C81E1E; --red-tint:#FBEAEA;
+  --green:#2E7D32; --green-tint:#E7F2E8;
+  --amber:#A96500; --amber-tint:#FBF1DE;
+  --gray-tint:#EDECE7;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--paper);color:var(--ink);font-size:14px;min-height:100vh;display:flex;flex-direction:column}
+
+/* ===== Title block ===== */
+.topbar{position:sticky;top:0;z-index:30;background:var(--paper);box-shadow:0 1px 0 var(--line)}
+.titleblock{background:var(--card);border-bottom:2px solid var(--ink);display:flex;align-items:stretch;flex-wrap:wrap}
+.tb-main{padding:12px 20px 10px;border-right:1px solid var(--line);min-width:230px}
+.tb-main h1{font-size:17px;font-weight:700;line-height:1.2}
+.tb-main .sub{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);margin-top:2px;letter-spacing:.07em;text-transform:uppercase}
+.tb-cell{padding:8px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;min-width:100px}
+.tb-cell .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--ink-soft);text-transform:uppercase}
+.tb-cell .val{font-family:var(--mono);font-size:12.5px;font-weight:600;margin-top:2px}
+.tb-actions{margin-left:auto;display:flex;align-items:center;gap:8px;padding:8px 16px}
+.dirty-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-left:7px;vertical-align:1px;visibility:hidden}
+.dirty .dirty-dot{visibility:visible}
+
+button{font-family:var(--sans);font-size:13px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:6px 12px;border-radius:3px;transition:background .12s,border-color .12s}
+button:hover{border-color:var(--ink-soft)}
+button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+button.primary{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600}
+button.primary:hover{background:var(--teal-dark)}
+button.mark{color:var(--red);font-weight:700}
+button:disabled{opacity:.45;cursor:default}
+button.sm{padding:4px 10px;font-size:12.5px}
+
+/* ===== Tabs ===== */
+.tabs{display:flex;gap:2px;padding:10px 18px 0;overflow-x:auto;flex-shrink:0;max-width:1120px;margin:0 auto;width:100%;scrollbar-width:none;-ms-overflow-style:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{font-family:var(--mono);font-size:12px;font-weight:500;padding:8px 13px 7px;border:1px solid var(--line);border-bottom:none;border-radius:4px 4px 0 0;background:#EAE8E0;color:var(--ink-soft);white-space:nowrap;cursor:pointer;user-select:none}
+.tab:hover{background:#F0EEE7}
+.tab.active{background:var(--card);color:var(--ink);font-weight:600;border-color:var(--ink);position:relative}
+.tab.active::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--card)}
+.tab .tdirty{color:var(--red);margin-left:5px;display:none}
+.tab.is-dirty .tdirty{display:inline}
+.tab-add{border:1px dashed var(--line);background:transparent;border-radius:4px 4px 0 0;padding:8px 11px 7px;color:var(--ink-soft)}
+
+/* ===== Toolbar ===== */
+.toolbarwrap{background:var(--card);border-top:1px solid var(--ink);border-bottom:1px solid var(--line)}
+.toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 18px;max-width:1120px;margin:0 auto}
+.toolbar .sep{width:1px;height:20px;background:var(--line-soft)}
+.toolbar input[type=search]{font-family:var(--sans);font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:3px;width:180px;background:#FBFAF7}
+.toolbar input[type=search]:focus{outline:2px solid var(--teal);outline-offset:-1px}
+.chip{font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;user-select:none}
+.chip:hover{border-color:var(--ink-soft)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.chip.on.red{background:var(--red);border-color:var(--red)}
+.pushright{margin-left:auto}
+.pair{display:inline-flex;gap:7px;white-space:nowrap;flex-shrink:0}
+
+/* ===== Task list ===== */
+.listwrap{flex:1;width:100%}
+.list{max-width:1120px;margin:0 auto;padding:16px 18px 80px}
+.task{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:4px;margin-bottom:10px;position:relative}
+.task.pri-High{border-left-color:var(--red)}
+.task.pri-Medium{border-left-color:var(--amber)}
+.task.pri-Complete{border-left-color:var(--green)}
+.task.has-upd::before{content:'THIS WEEK';position:absolute;top:-1px;right:14px;font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;background:var(--red);color:#fff;padding:2px 7px 1px;border-radius:0 0 3px 3px;pointer-events:none}
+.task.sel{box-shadow:0 0 0 2px var(--teal)}
+.task.hidden{display:none}
+.task.lv1{margin-left:34px}
+.task.lv2{margin-left:68px}
+.task.is-hidden{border-style:dashed;background:#FAFAF7}
+.task.is-hidden .tmeta,.task.is-hidden .tbody-wrap,.task.is-hidden .tcollapse{display:none}
+.task.is-hidden .task-head{opacity:.45;padding-bottom:10px}
+.task.is-hidden .task-actions{opacity:1}
+.task.is-hidden::before{content:'NOT TRACKED';position:absolute;top:-1px;right:14px;font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;background:#9AA3AB;color:#fff;padding:2px 7px 1px;border-radius:0 0 3px 3px;pointer-events:none}
+.task.is-hidden.has-upd::before{content:'NOT TRACKED';background:#9AA3AB}
+.btn-unhide{font-size:12px !important;color:var(--teal) !important;border:1px solid var(--line) !important;background:var(--card) !important;opacity:1}
+.btn-unhide:hover{border-color:var(--teal) !important;background:var(--teal-tint) !important}
+@media(max-width:700px){.task.lv1{margin-left:16px}.task.lv2{margin-left:32px}}
+
+.task-head{display:flex;align-items:flex-start;gap:10px;padding:10px 14px 8px}
+.tnum{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-soft);min-width:30px;padding-top:3px;cursor:pointer;user-select:none}
+.tnum:hover{color:var(--teal)}
+.ttitle{flex:1;font-size:14.5px;font-weight:600;line-height:1.35;outline:none;padding:2px 4px;border-radius:2px;min-height:22px}
+.ttitle:focus{background:#FDFCF9;box-shadow:inset 0 0 0 2px var(--teal)}
+select.badge{appearance:none;-webkit-appearance:none;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border:none;border-radius:20px;padding:4px 12px;cursor:pointer;background:var(--gray-tint);color:var(--ink-soft);text-align:center;max-width:160px}
+select.badge:focus{outline:2px solid var(--teal)}
+select.badge.b-High{background:var(--red-tint);color:var(--red)}
+select.badge.b-Medium{background:var(--amber-tint);color:var(--amber)}
+select.badge.b-Complete,select.badge.b-Active{background:var(--green-tint);color:var(--green)}
+select.badge.b-Hold{background:var(--amber-tint);color:var(--amber)}
+
+.task-actions{display:flex;gap:2px;opacity:0;transition:opacity .12s}
+.task:hover .task-actions,.task.sel .task-actions{opacity:1}
+.task-actions button{padding:3px 7px;font-size:12px;border-color:transparent;background:transparent;color:var(--ink-soft)}
+.task-actions button:hover{background:var(--paper);border-color:var(--line);color:var(--ink)}
+.task-actions button.del:hover{color:var(--red);background:var(--red-tint)}
+
+.tmeta{display:flex;flex-wrap:wrap;padding:0 14px 6px 54px}
+.mfield{display:flex;align-items:baseline;gap:5px;padding:1px 0;margin-right:22px}
+.mfield label{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#9AA3AB;white-space:nowrap}
+.mval{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);outline:none;min-width:20px;padding:1px 3px;border-radius:2px;white-space:pre-wrap}
+.mval:empty::before{content:'—';color:#C9CDD1}
+.mval:focus{background:#FDFCF9;box-shadow:inset 0 0 0 2px var(--teal);color:var(--ink)}
+
+.tbody-wrap{border-top:1px solid var(--line-soft);margin:2px 14px 0 54px;padding:8px 0 14px}
+.tbody{font-size:13px;line-height:1.55;color:#37444F;outline:none;white-space:pre-wrap;word-break:break-word;padding:2px 4px;border-radius:2px}
+.tbody:focus{background:#FDFCF9;box-shadow:inset 0 0 0 2px var(--teal)}
+.tbody:empty::before{content:'Add status notes…';color:#B9BFC5}
+.tbody{color:#333A40}
+.tbody .nl{margin:2.5px 0;min-height:1em}
+.tbody .nl-item{position:relative;padding-left:20px}
+.tbody .nl-item::before{content:'–';position:absolute;left:3px;top:0;color:#A9B0B6}
+.tbody .nl-sub{position:relative;padding-left:44px;color:#505A63}
+.tbody .nl-sub::before{content:'→';position:absolute;left:22px;top:0;color:#8F98A0}
+.tbody .nl-num{margin-top:9px;padding-left:2px}
+.tbody .nl-num:first-child{margin-top:0}
+.tbody .num{font-family:var(--mono);font-weight:700;font-size:12px;color:var(--ink);letter-spacing:.02em}
+.tbody .nl-gap{height:8px;min-height:0;line-height:8px;overflow:hidden}
+.task.collapsed .tbody-wrap{display:none}
+b{font-weight:700}
+.upd{color:var(--red);font-weight:700}
+.tcollapse{position:absolute;left:0;bottom:0;font-family:var(--mono);font-size:9px;color:#A6ADB4;background:transparent;border:none;padding:3px 9px;cursor:pointer;letter-spacing:.05em}
+.tcollapse:hover{color:var(--teal)}
+
+.addtask{width:100%;padding:11px;border:1.5px dashed var(--line);background:transparent;color:var(--ink-soft);border-radius:4px;font-size:13px}
+.addtask:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-tint)}
+.emptymsg{text-align:center;color:var(--ink-soft);padding:40px 0 16px;font-size:13px}
+
+/* ===== Status bar ===== */
+.statusbar{padding:6px 18px;background:var(--ink);color:#C8CFD5;font-family:var(--mono);font-size:11px;display:flex;gap:16px;align-items:center;position:sticky;bottom:0;z-index:20;flex-wrap:wrap}
+.statusbar .ok{color:#7FD1AE}.statusbar .err{color:#F09B9B}
+.statusbar .spacer{margin-left:auto}
+
+/* ===== Modal ===== */
+.overlay{position:fixed;inset:0;background:rgba(20,28,35,.55);display:none;align-items:flex-start;justify-content:center;z-index:50;padding:40px 16px;overflow:auto}
+.overlay.open{display:flex}
+.modal{background:var(--card);border:2px solid var(--ink);border-radius:4px;width:520px;max-width:100%;padding:22px 24px}
+.modal h2{font-size:16px;margin-bottom:4px}
+.modal .mono-note{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-bottom:14px}
+.modal label{display:block;font-size:12.5px;font-weight:600;margin:12px 0 4px}
+.modal input{width:100%;font-family:var(--mono);font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:3px}
+.modal input:focus{outline:2px solid var(--teal);outline-offset:-1px}
+.modal .row2{display:flex;gap:10px}.modal .row2>div{flex:1}
+.modal .btns{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+.modal .steps{font-size:12.5px;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line-soft);border-radius:3px;padding:10px 12px;margin-top:14px;line-height:1.6}
+.modal .steps b{color:var(--ink)}
+
+body:not(.editmode) .edit-only{display:none !important}
+body:not(.editmode) .task-actions{display:none}
+body:not(.editmode) .addtask{display:none}
+body:not(.editmode) .tab-add{display:none}
+.mode-badge{font-family:var(--mono);font-size:10px;letter-spacing:.08em;padding:3px 9px;border-radius:20px;background:var(--gray-tint);color:var(--ink-soft)}
+body.editmode .mode-badge{background:var(--teal-tint);color:var(--teal)}
+.toast{position:fixed;bottom:44px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:4px;font-size:13px;z-index:99;display:none;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:90vw}
+.toast.show{display:block}
+@media (prefers-reduced-motion:no-preference){.toast.show{animation:pop .18s ease-out}}
+@keyframes pop{from{transform:translateX(-50%) translateY(8px);opacity:0}}
+
+@media(max-width:700px){
+  .tb-cell{display:none}
+  .tmeta{padding-left:14px}
+  .tbody-wrap{margin-left:14px}
+  .task-actions{opacity:1}
+  .toolbar input[type=search]{width:120px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+<header class="titleblock">
+  <div class="tb-main">
+    <h1>Development Tracker<span class="dirty-dot" id="dirtyDot" title="Unsaved changes"></span></h1>
+    <div class="sub">Weekly Meeting Minutes · Nan Inc.</div>
+  </div>
+  <div class="tb-cell"><span class="lbl">Updated</span><span class="val" id="tbUpdated">—</span></div>
+  <div class="tb-cell"><span class="lbl">Tasks</span><span class="val" id="tbRows">—</span></div>
+  <div class="tb-actions">
+    <span class="mode-badge" id="modeBadge">VIEW ONLY</span>
+    <button id="btnMode" class="sm">✎ Edit</button>
+    <button id="btnSettings" class="sm">⚙ Settings</button>
+    <button id="btnExport" class="sm">Export</button>
+    <button id="btnSave" class="primary edit-only">Save to GitHub</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" aria-label="Projects"></nav>
+
+<div class="toolbarwrap"><div class="toolbar" id="toolbar">
+  <input type="search" id="search" placeholder="Search…" aria-label="Search">
+  <span class="sep"></span>
+  <button class="chip red" id="fUpd" title="Show only tasks with red 'this week' updates">This week ●</button>
+  <button class="chip" id="fHigh">High priority</button>
+  <button class="chip" id="fHideDone">Hide completed</button>
+  <span class="sep edit-only"></span>
+  <button id="btnMark" class="sm mark edit-only" title="Select text, then click to mark it as this week's update (bold red)">A Mark update</button>
+  <button id="btnBold" class="sm edit-only" title="Bold selected text"><b>B</b></button>
+  <button id="btnUnmark" class="sm edit-only" title="Clear formatting on selected text">Clear format</button>
+  <span class="sep edit-only"></span>
+  <button id="btnClearSheet" class="sm edit-only" title="Turn all red marks on this tab back to plain text — run before each weekly meeting">Start new week</button>
+  <button id="btnCollapseAll" class="sm">Collapse all</button>
+  <span class="sep edit-only"></span>
+  <span class="pair edit-only">
+    <button id="btnUndo" class="sm" disabled title="Undo last change (Ctrl+Z)">↶ Undo</button>
+    <button id="btnRedo" class="sm" disabled title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
+  </span>
+  <button id="btnManage" class="sm pushright edit-only">Manage ▾</button>
+</div></div>
+</div>
+
+<main class="listwrap"><div class="list" id="list"></div></main>
+
+<div class="statusbar">
+  <span id="stMsg">Ready</span>
+  <span id="stSaved"></span>
+  <span class="spacer"></span>
+  <span id="stMode">local data</span>
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <h2>GitHub Sync Settings</h2>
+    <div class="mono-note">Configure once — then every "Save to GitHub" commits your edits directly to the repository.</div>
+    <div class="row2">
+      <div><label>Owner (username)</label><input id="cfgOwner" placeholder="fjiang17"></div>
+      <div><label>Repository</label><input id="cfgRepo" placeholder="dev-tracker-minutes"></div>
+    </div>
+    <div class="row2">
+      <div><label>Branch</label><input id="cfgBranch" value="main"></div>
+      <div><label>Data file path</label><input id="cfgPath" value="Nan Development Tracker_data.json"></div>
+    </div>
+    <label>Fine-grained token</label>
+    <input id="cfgToken" type="password" placeholder="github_pat_…">
+    <div class="steps">
+      <b>How to create a token:</b><br>
+      GitHub → Settings → Developer settings → <b>Fine-grained tokens</b> → Generate new token<br>
+      · Repository access: select <b>only this repository</b><br>
+      · Permissions → Repository permissions → <b>Contents: Read and write</b><br>
+      · Set expiration to 90 days or 1 year, then replace it here when it expires. The token is stored only in this browser.
+    </div>
+    <div class="btns">
+      <button id="cfgLink" title="Copy a link that gives teammates edit+save access in one click">🔗 Copy team access link</button>
+      <span style="flex:1"></span>
+      <button id="cfgCancel">Cancel</button>
+      <button id="cfgSave" class="primary">Save settings</button>
+    </div>
+    <div class="mono-note" style="margin-top:10px">Team access: after saving settings, click "Copy team access link" and share it privately (chat/DM). Anyone who opens the link once can edit and save from their own browser. Don't post the link publicly — it contains the access token.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script id="embeddedData" type="application/json">{
+ "version": 1,
+ "lastSaved": "2026-08-04",
+ "lists": {
+  "priority": [
+   "Complied/Completed",
+   "High",
+   "Medium",
+   "Low",
+   "Inactive"
+  ],
+  "status": [
+   "Active",
+   "On Hold",
+   "Terminated",
+   "See other tab"
+  ]
+ },
+ "sheets": [
+  {
+   "id": "Palamanui",
+   "name": "Palamanui",
+   "title": "Palamanui - Task Tracker",
+   "updated": "2026-08-04",
+   "type": "tracker",
+   "columns": [
+    "No.",
+    "Task Description",
+    "Priority",
+    "Start",
+    "Ends",
+    "Status",
+    "Due",
+    "Deadline",
+    "AHJ",
+    "Responsible Party",
+    "Reference"
+   ],
+   "rows": [
+    [
+     "0",
+     "LUC/County Annual Report",
+     "Low",
+     "2027-03-01",
+     "",
+     "1. Submited 2025 Report 6/12/2026;<br>- <b>2026 Report</b> - <span class=\"upd\">Restart in March 2027</span>",
+     "2027-06-01",
+     "Every year on or prior to June 13",
+     "",
+     "Micah",
+     ""
+    ],
+    [
+     "1",
+     "Regulating Plan",
+     "Complied/Completed",
+     "2024-05-07",
+     "",
+     "Formal approve received on 1/9/2025",
+     "Complete",
+     "Prerequisite for the development",
+     "DPP",
+     "Sid",
+     "Ordinance No 21-27, K"
+    ],
+    [
+     "<b>2</b>",
+     "<b>Affordable Housing and Agreement</b>",
+     "<b>Medium</b>",
+     "<b>2024-09-04</b>",
+     "",
+     "<b>See item 10 below.</b>",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3",
+     "Subdivision and Site Improvement",
+     "High",
+     "",
+     "",
+     "1. DHHL site:  Sid recommended don't do subdivision, just do CPR within DHHL lot, build according with County.<br>2. Sun had a meeting DHHL 5/16, DPI will provide a list of waive.<br>- After that, Sun to schedule a meeting with County and DHHL.<br>- DHHL will do their own CPR within their lot",
+     "",
+     "Yes, you can submit the subdivision (you call that plat) appln now, concurrent with the Plan Approval.  I suspect that with the approved drainage plan, Final PA is ready for issuance.  When you apply for a building permit, however, Plng might suspend processing of the Subn as they don’t want to approve a Subn map that may create setback or access issues for the bldg permit appln.  Nonetheless, I would suggest getting the Subn appln in the processing queue.  4/24 from Sid.",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3.1",
+     "Archeological",
+     "High",
+     "",
+     "",
+     "1. <b>Palamanui Trails </b>- Completed 2 reviews, still pending SIHP number - 30 day review period ends this Friday, 10/24/25; mid early November to get SIHP number; Sun requested status/comments - Comment on trails received; <span class=\"upd\">Still pending SIHP Number</span>; Sun to send follow up email to Kuu and Jeff - met with trail association, Ala Kahakai, on 12/15/2025<br>- Sun received proposal from Lawrence; Sun will request section drawings and CC Min; Trail survey - Lawrence &amp; Matt on 2/6/2026 at 10AM.<br>- Sun provided update for the Business Park; Lawrence and Matt to check DHHL site 2/17/2026<br>- Sun to provide letter from DHHL for Wyeth to draft letter recommending for relocation - <span class=\"upd\">pending survey</span><br>- G70 will submit to SHPD, waiting for SIHP number. Sun to follow up with Jeff/G70 on the following:<br>- Follow up on trail response to SHPD - Wyeth to follow up with G70 if they received a letter from SHPD. As of 3/16/26, G70 has not recieved anything from SHPD -Received letter on 4/17/2026, meeting on 4/23/26 to review SHPD letter with G70, DHHL, archaeologist<br>- Pending letters from SHPD; Solomon working with SHPD to address SHPD concerns - 2 weeks (4/21/2026)<br>- Patti requested trail map from Solomon to relocate trails - Wyeth to follow up<br>- Sent out 30 day review period for the trails (double check date)<br>- Sun sent mitigation plan 6/22/2026<br>- Will send to DHHL proposal for Commercial to relocate trails<br>- <span class=\"upd\">Will just document data and no further work/no relocation of trails - </span><span class=\"upd\">Wyeth to follow up with Patti to push for no relocation</span>",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3.2",
+     "Business Park Subdivision and CPR",
+     "High",
+     "2025-02-25",
+     "2025-03-30",
+     "1. Sid working with Planning to determine lots that share MCX and commercial<br>→ Per Jeff Darrow Email:  \"The best way to resolve this is to amend the zoning to make the zoning align with the proposed layout vs trying to use the non-significant process to adjust zoning on each lot…. This may be problematic as well because someone may say that we circumvented the process by allowing subdivision first, then doing non-significant vs doing it before the subdivision…<br>- Although our code may not speak to split zoning, we have always viewed this as problematic, especially when it involved zoning like residential and agriculture.  In this case, it many not be as problematic because the MCX zoning has very limited industrial uses and many commercial uses.  Additionally, Bill 63 is moving towards Council, which will allow residential uses in MCX, thereby aligning even more with the uses in the Project District.\"<br>→ Sid's response: \"... both the Subdivision and Zoning Codes are silent or at least do not expressly state that split zones are prohibited on a lot.   As the Zoning Code governs use, I would continue to maintain that it can be done, but lot owners would need to understand the underlying zoning restrictions re: uses, setback, height, etc.<br>- While a zoning amendment could be submitted to make the lot and zoning lines align, I think it would be best after the lots are created.  By then, the configuration would be set (unlike based on a preliminary plat) and there would thus be little or no chance to have even a sliver of split zone.<br>- Along those lines, a condition of subdivision approval could be the recordation of a document disclosing the split zoning constraints with a caveat that they get released upon removal of the split zoning.<br>- Finally, I think if the \"circumvention\" question comes up, the split zone configuration would be defensible.  For one, it is not expressly disallowed by the Codes.  Then, too, it is the choice of the subdivider, and to minimize the need for variances, misunderstandings, etc., your office required a disclosure agreement.\"<br>→ Jeff's response: \"We can work towards a amenable resolution for the split-zoning concerns through the subdivision process.\"<br>- Check with Sid to get tentative approval for Business Park Subdivision;<span class=\"upd\"> Still waiting for review approval; may need to initiate meeting with DPP</span> - Sid was informed; <span class=\"upd\">Include CPR start dates in schedule</span><br>2. Surveyor (Pattison Land Surveying)",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3.3",
+     "Site Mass grading and Permitting",
+     "Complied/Completed",
+     "2024-09-01",
+     "2025-02-10",
+     "1. Waiting for SHPD clearance, archaeological<br>→ Propose relocation of newly identified preservation area (from SF site to Kupuna housing site)<br>- Fund for grading: make sure not use the funding from NAHASTA: $15.5M, $7M for grading<br>2. Extend mass grading permit for Road 2 and 2A by end of this week, 3/27/2026 - Min confirmed on 3/31/2026 is pending renewal based on County review",
+     "",
+     "Prior to submit building permit",
+     "",
+     "Lawrence",
+     ""
+    ],
+    [
+     "3.4",
+     "NPDES Permit",
+     "High",
+     "",
+     "",
+     "1. Lawrence said he is working on this",
+     "",
+     "after the approve grading permit",
+     "",
+     "Lawrence",
+     ""
+    ],
+    [
+     "3.5",
+     "Site Improvement (road, utilities)",
+     "High",
+     "2024-09-01",
+     "",
+     "1. Waiting for County DPW comments - Received grading permit approval for Road 2 and 2A",
+     "2025-03-31",
+     "Approval prior to submit building permit",
+     "",
+     "Lawrence",
+     ""
+    ],
+    [
+     "3.6",
+     "HECO<br>Phase 1A = WWTP &amp; DHHL AH<br>Phase 1B = Commercial/Industrial and remaining Phase 1 development",
+     "High",
+     "",
+     "",
+     "1. <b>Phase 1A</b> - Approved <b>-</b> Paid in full Phase 1A fee proposal 12/12/2025<br>- Power for Phase 1A, Keahole Airport Fans upgrade to supply power to DHHL site and WWTP only; should be ready by this year 2026.<br>- Cost paid in full<br>- The fan stands are constructed and installed;<br>- Fans are still on track for August.<br>- All material is on island<br>- The design is complete.<br>- Installation: August 2026 timeframe when HECO has an opening with the crew.<br>2. Submitted new service request for new substation in August; Min to follow up with HECO<br>→ HECO received and made comments; already accepted this application<br>→ submitted request in September 2025, HECO needs time to review;<br>→ Initiate meeting on how to create our own substation - Min spoke to Kraig on this subject; Kraig said should be doable and will discuss with HECO engineer,<br>- Received new fee proposal for new substation - Pay by 3/19/2026 or it will be cancelled - Sent Check, HECO will begin after check received<br>- HECO will power by end of 2026 for WWTP and DHHL housing only, HECO will provide fee proposal to improve the existing substation by end of 2025.<br>- <b>Phase 1B</b> - New substation for the rest of development of Phase I, on schedule by 2028<br>- There will be two 10 MW units for the full 16 MW build out (for entire Palamanui Development)<br>- The plan is to provide one 10 MW unit first and then phase the second 10 MW unit in once the development requires it<br>- Rough cost estimate for the full substation would be close to $20M. I will say the first 10 MW will be around $10M or more. <span class=\"upd\">Paid HECO $100,000 to start engineering - keep track of power for commercial, industrial, and AH</span><br>- HECO has kicked off this project internally<br>- Preparations for the PUC application are underway.<br>- Target is this year to apply with a request for long lead purchase approval ahead of the final commission approval.",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3.7",
+     "Site drainage plan",
+     "High",
+     "",
+     "",
+     "1. Drainage plan will be done per project;<br>2. Dave from TRIAD will work on calc and drainage plan",
+     "2025-03-31",
+     "Approval prior to submit Site Plan",
+     "",
+     "Lawrence",
+     ""
+    ],
+    [
+     "<b>4</b>",
+     "<b>Water</b>",
+     "High",
+     "",
+     "",
+     "<b>See items below</b>",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "4.1",
+     "Water Master Plan Update",
+     "High",
+     "2024-07-01",
+     "",
+     "1. As soon as receive okay for the calculations from Ryan Q, then Greg will finalize the plan to complete the Water Master Plan; Ryan responded concurring with our proposal, Tom Nance is finalizing submittal - Master plan was submitted to DWS 2/23/2026 - comments received; is this accepted? 4/20/26: Ryan is still reviewing Water Master Plan - Ryan and Alan are both out this week, will follow up next week. Greg responded, Pending response from Ryan - Wyeth to reached out to Keith tomorrow 7/8/2026, Keith will follow up with team - Wyeth to follow up with him 7/21/2026, <span class=\"upd\">No response - Wyeth followed up again</span>",
+     "2025-02-15",
+     "Prior Site Plan Approval",
+     "DWS",
+     "TNW/Traid",
+     "Ordinance No 21-27, D<br>Ordinance No 21-25, D"
+    ],
+    [
+     "4.2",
+     "Water Agreement: entitled 560 EU of Water",
+     "High",
+     "2024-10-01",
+     "",
+     "1. Wyeth to revise water agreement in incorporate Well #3. Followed up with Ryan on 10/27/2025 for comments;<br>- Wyeth to finalize Water Agreement by 1/13/2026 - Sent WA last week, 1/14/26; waiting for response; Wyeth following up -  Received comments from Ryan 4/6/2026, Wyeth submitted initial comments to team 4/10/26,  Met with Wyeth to finalize WA - Submitted on 6/2/2026, Min followed up on 6/16/2026, Wyeth to reached out to Keith tomorrow 7/8/2026, Keith will follow up with team - Wyeth to follow up with him 7/21/2026,<span class=\"upd\"> no response, follow up again</span>",
+     "",
+     "",
+     "",
+     "Wyeth",
+     ""
+    ],
+    [
+     "4.3",
+     "Issue 250 EU Upon Trial Operating Period (TOP 1)",
+     "High",
+     "2025-06-15",
+     "2026-06-15",
+     "1. DWS confirmed TOP start on 9/22/2025<br>- <span class=\"upd\">Need to finalize TOP durations</span><br>- <span class=\"upd\">Need to issue 96 EU to Makalei Estate</span>",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "4.4",
+     "Issue 310 EU Upon TOP 2",
+     "Medium",
+     "2026-06-15",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "4.5.a",
+     "Well #2",
+     "High",
+     "",
+     "",
+     "1. <b>Well #2</b> is pumping and has been running for a week, start TPO from 9/30/2025;<br>→ Min requested test reports for our record<br>- DWS owns Well 2 site;",
+     "",
+     "Prior mater plan, building permit approval",
+     "",
+     "",
+     ""
+    ],
+    [
+     "4.5.b",
+     "Well #3",
+     "",
+     "",
+     "",
+     "- <b>Well #3</b> - Chad (Civil), Kraig (Electrical), need geotech report<br>1. <b>AIS and KPA needs to be completed</b> - ongoing;<br>- Solomon found 2-3 areas with 'iwi, will need to work around it; 3/9/26: Solomon sent AIS, team to review and provide comments to Min by Friday, 3/13/26. Moved the pump site. Agreed to recommend proposed 2 AG and iwi sites for preservation. Redesign pad and access a bit.<br>- Need to design well location and storage tank to our liking while waiting for Final AIS, pending KPA; review Well #3 AIS to see if addressed multiple requests for assessment (Identified each historical feature (SIHP# and criteria d &amp; e) with a paragraph confirming what he did - Char &amp; Taylor review and crosscheck with letter from SHPD citations) - New policy/rule requiring more; Lawrence is going to do site topo this week with Solomon, 5/19/2026; send Solomon the response from Tom Nance; Lawrence visit site with Solomon on 7/2/2026<br>- Follow up with CWRM on old application (2014) or submit new application; Greg will call regarding the CWRM application - Response was that we could reinitiate request off an old permit, but need to resubmit a new permit; because of location of well it will most likely be put under scrutiny and require a contested case hearing. Tom Nance said go with 700 gpm; Right to sell - look at allocation section<br>- Received questions from KPA - Tom Nance to draft response; Wyeth to review strategy and discuss; Responded to Solomon - Solomon submitted draft to our team; confirmed not to include scope outside of water - <span class=\"upd\">Received comments - responded to Solomon on 7/30/2026</span><br>2. <b>Grubbing permit </b>- ongoing; <span class=\"upd\">pending Final AIS</span><br>3. Well #3 Application: Met with Tom Nance and Chad this afternoon (3/10/2026) to go over design.<br>- Tentative Schedule: Lawrence will complete Palamanui by 3/27/2026, will complete Well site 3 by end of April and send to Chad. Need Lawrence to double check Archeological GPS locations; <span class=\"upd\">Min to follow up with Lawrence if Solomon and Lawrence visited the site to do the topo</span><br>3. <b>Well Permit -</b> Application to CWRM status: Confirmed site plan and well design needed before submitting application, end of May 2026 goal for submittal <span class=\"upd\">- Survey needed for Chad to do the Site Plan, then Tom Nance can do the well design; </span><span class=\"upd\">Lawrence will do on site topo for Well Site #3 September 14th and off site topo on September 21st</span><br><br>- Taylor sent CWRM board members to Nan, Wyeth to send video, plan to meet internally<br>- Team to get info on board members, watch CWRM videos (board meetings)",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "4.6",
+     "Master Water System Improvements",
+     "",
+     "",
+     "",
+     "1. DN Tank - Received fee proposal 11/21/2025<br>2. Civil - Min to work with Chad on fee proposal; <span class=\"upd\">Pending proposal</span><br>3. Mechanical or Lawrence for piping - Chad will sub out mechanical<br>4. Need technical specs and any compliance to meet DWS standard;<br>5. Negotiate with DWS phasing of the 4 tanks (300,000 gal ea.)<br>- Cost to do 2 or 4 at a time - $13M for 4 tanks (DN Tank) - Jason will run cost for self-perform work; prestressed tank $4M vs. post tank is $9M; DN tank provided for prestressed, requesting design for post; Kai is working on design, Design for stair by 6/12/2026 - Submitted 1 tank design 6/12/26<br>6. Need geotech report - include DHHL site; Received and approved fee proposal by Sun<br>- Water tank sites (4 sites) approved; Lawrence gained access to site - <span class=\"upd\">working on survey</span><br>7. Lawrence to do survey for some of the well site - <span class=\"upd\">need to update some of the existing surveyed sites;</span><br>8. After survey, John (Geolab) needs to do geotech studies - <span class=\"upd\">Need to double check with Structural engineer</span><br>9. Keep track of costs - Facility development credit under DPW<br>- Chad's Schedule:<br>- Palamanui - 1815' 0.30 MG Reservoir 50% Coordination: 7/3<br>- Palamanui - 1445' 0.30 MG Reservoir 50% Coordination: 6/19 (received)<br>- Palamanui - 1136' 0.30 MG Reservoir 50% Coordination: 6/12 (received) - <span class=\"upd\">On track to submit for permit 8/14/2026</span><br>- Palamanui - 867' 0.30 MG Reservoir 50% Coordination: 6/26; Topo received",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "5",
+     "Construction of Queen Ka'ahumanu Highway-University Drive intersection, estimated cost: $7M",
+     "High",
+     "",
+     "",
+     "1. Permit drawings completed.<br>- DOT District design engineer (Kentzie) working on project, Chad mentioned permit process is being restructured - received comments, Chad returned comments; pending DOT review by Friday, 3/13/26.  Chad update: Received comments; Kraig - electrical engineer sent back drawings, Chad QC drawings, submitted to DOT; expected comments by 6/5/26 - Chad received comments 7/13/2026; <span class=\"upd\"> Resubmitted 7/30/2026, Chad to send updated drawings to Jason and team</span>",
+     "2026-03-31",
+     "Before Business Park's construction, prior to final subdivision approval",
+     "",
+     "Lawrence",
+     "Ordinance No 21-25, E<br>Ordinance No 21-27, U.d, e"
+    ],
+    [
+     "6",
+     "Construction of University Drive from Queen Ka'ahumanu Hwy to Ane Keohokalole Hwy",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "Before Business Park's construction, prior to final subdivision approval",
+     "",
+     "Lawrence",
+     "Ordinance No 21-25, E<br>Ordinance No 21-27, U.d, e"
+    ],
+    [
+     "7",
+     "Establish covenants to all deeds to any parcels",
+     "High",
+     "",
+     "",
+     "1. Add clause for contribution for water/wastewater treatment plant fee, etc.;<br>2. Draft CC&amp;R received 5/9/25;<br>3. Sun to ask DHHL site to be exempted from CC&amp;Rs",
+     "2025-05-15",
+     "Prior to convey parcels",
+     "",
+     "Wyeth/Min",
+     "Ordinance No 21-27, PP"
+    ],
+    [
+     "7.1",
+     "Master Design Guideline",
+     "High",
+     "2025-01-01",
+     "",
+     "On hold",
+     "2025-04-28",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>8</b>",
+     "<b>Business Park</b>",
+     "<b>High</b>",
+     "",
+     "",
+     "<b>- See items below</b>",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "8.1",
+     "Business Park Master Plan",
+     "Complied/Completed",
+     "2024-07-15",
+     "2024-10-11",
+     "- Completed. Move forward with current masterplan<br>- Met with DPI 7/23/2026: DPI will come up with Master Plan proposal; <span class=\"upd\">Wyeth submitted signed proposal (include dates)</span>",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "8.2",
+     "Business Park- Marketing",
+     "High",
+     "2024-10-08",
+     "",
+     "- Colliers Meetings will resume, 1/23/2026 @10am - Nan contacted Whole foods broker and don't want to proceed with this area<br>- Min to create tentative schedule of completion dates for potential tenants - Pad by beginning of 2028; Up by 2029 (tentative) - SHPD approval tentatively by July/August? Start before approval<br>- Internal review with team to go over Jason's schedule - Met on 6/12/2026<br>1. Randall responded with updated language on 10/3/2025;<br>2. Par Hawaii - review documents; Mason will follow up with Par Hawaii and Maryl Group<br>3. Foodland wants a market study and to tour the site; Coordinate meeting with team<br>4. County gave notice on 9/22/25 that we need to comply with law not advertising lease before final subdivision approval, so we need to be creative on how we advertise;<br>5. Randall to draft a contract template;<br>6. Nan ok to sell to Maryl, need to adjust the lot location;<br>7. Ground lease LOI for car wash, send LOI to Micah and Kim;<br>8. Nan the potential buyer and agreement;<br>9. Lot 23: Sunbelt Rental Ike to buy, want to sign an agreement;<br>10. Cosco AC looking for 15,000 sf building on 1 acre lot, make sure have Alika to follow up with them to take them to warehouse at Kapolei;<br>11. KS look at preschool 1 to 2 acre, they like our site, ground lease;<br>12. Outside legal: Randal S<br>13. Market website online",
+     "",
+     "",
+     "",
+     "CH",
+     ""
+    ],
+    [
+     "8.3",
+     "Business Park- Mass grading",
+     "High",
+     "2025-01-01",
+     "",
+     "Ongoing - Lawerence to address comments when provided; get this finalized now and commit not to do anything<span class=\"upd\"> pending SHPD approval</span>",
+     "2025-02-15",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "8.4",
+     "Business Park- Road and Site Improvement",
+     "High",
+     "2025-01-01",
+     "",
+     "Ongoing",
+     "2025-02-28",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "8.5",
+     "Business Park- Design Guideline",
+     "High",
+     "2025-02-24",
+     "",
+     "Get feedback to PBR by 4/3",
+     "2025-02-28",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "9",
+     "Packaged Wastewater Treatment System: A Membrane Bioreactor (MBR) Wastewater Reclamation Facility",
+     "High",
+     "",
+     "",
+     "- DOH approved, proceeding with Building permit - will need to keep SHPD updated with status<b> (see item 9.3)</b><br><br>- Phase I: 250,000 gal<br>- Need to update project schedule.<br>- 90% drawing submitted for review, we need to complete the Admin building permit drawings",
+     "",
+     "Prior Building permit review and approval",
+     "DOH, DEM",
+     "WSI",
+     "Ordinance No 21-25, J<br>Ordinance No 21-27, EE"
+    ],
+    [
+     "9.1",
+     "DOH submittal",
+     "High",
+     "2024-07-05",
+     "",
+     "1. DOH will approve after the injection well re-activated; <span class=\"upd\">Pending DOH approval.</span><br>2. Min to check with WSI on WWTP permitting - DOH verbally said no further comments,<span class=\"upd\"> pending official approval</span>",
+     "",
+     "",
+     "",
+     "WSI",
+     ""
+    ],
+    [
+     "9.2",
+     "Plan Approval Submittal",
+     "Medium",
+     "",
+     "",
+     "1. Triad prepare and submit drainage plan 1/31/2024;<br>2. Archaeological<br>- Plan approval - WWTP on 2 TMKs, want to minimize review, Min to check with Plan reviewer what he is looking for - Drainage calculation was submitted yesterday, 5/18/26, received drainage calculation approval 6/22/2026, submitted Plan Approval 6/22/2026; received comments regarding landscape<br>- <span class=\"upd\">Char to send revisions per comments by 8/7/2026</span>",
+     "",
+     "",
+     "",
+     "WSI/Nan",
+     ""
+    ],
+    [
+     "9.3",
+     "Building Permit",
+     "High",
+     "",
+     "",
+     "1. WSI completed drawings; Meiyi submitted permit package on 2/19/2026<br>2. WSI will submit HECO request after business park power distribution plan finished<br>- Engineers updated their stamps and Meiyi to submit 3/31/2026; passed pre-screen for Building Permit review<br>- <span class=\"upd\">Need plan approval before submitting building permit</span>",
+     "",
+     "",
+     "",
+     "WSI/Nan",
+     ""
+    ],
+    [
+     "9.4",
+     "Injection well, <span class=\"upd\">expiring on Jan 29, 2029</span>",
+     "Low",
+     "",
+     "",
+     "1. <b>Quarterly report:</b> Char to submit next report by <span class=\"upd\">October 15, 2026</span><br>2. <b>Annual test report:</b> Due March.<br>3. <b>Test report</b> submitted;<br>4. Re-activate the inject well application submitted on 12/20/25, under preliminary review, 4 of 28 steps;<br>5. DOH project name: UH-2623 Palamanui PermMod 7/7/2025<br>- Updates:<br>1. Reviewed, will route for signatures now, will need couples weeks, final approval around Aug 18, 2025<br><br>- <b>Reminder: </b>Annual test - January testing, Report Due March 2027.",
+     "",
+     "Quarterly due: prior 7/15/2026<br>Next Annual report due: March, 2027",
+     "SDWB, DOH",
+     "MZ/TN",
+     ""
+    ],
+    [
+     "10.a",
+     "Affordable Housing and Agreement",
+     "Medium",
+     "2024-09-04",
+     "",
+     "1. Wyeth to email County; Got response asking on status of permitting<br>- Sun to update, 10/21/25<br>2. Meeting with OHCD 9/22/25 - Wyeth finalize AH credits;<br>3. OHCD calculations incorporate commercial, however they will determine if their reading is correct - <span class=\"upd\">follow up</span>;<br>4. Legal rush is 21 days for OHCD (10/13/25); Wyeth to send email by 10/17 <span class=\"upd\">Keep following up</span><br>5. Schedule a meeting with planning, meet with Merrick after, then planning, housing, and team - Met at 10 AM on 11/26/2025<br>6. AH credits - Met with Sun 12/24/25 internall; Met at 2:30PM/4PM (tentative) 2/17/26 go over AH credit phasing; Wyeth emailed team for support in response to Kehau 3/31/26 - Meet internally at 9AM 4/14/26; double check email before Wyeth sends out to Kehau - Taylor resent email to team on 4/22/2026, no further comments from team -  Wyeth sent to Kehau<br>- <span class=\"upd\">How to get more credits (2:1); </span><span class=\"upd\">follow up with Kehau on status - draft agreement</span>",
+     "",
+     " This requirement shall be approved by the Administrator of the Office of Housing and Community Development prior to receipt of Final Site Plan Approval and/or Final Subdivision Approval for any subdivision creating single-family residential lots, whichever occurs first.",
+     "Administrator of the Office of Housing and Community Development",
+     "Wyeth",
+     "D&amp;O Condition 1<br>Ordinance No 21-25, L<br>Ordinance No 21-27, II<br>Chapter 11, Article 1, Hawai'i County Code, relating to Affordable Housing Policy."
+    ],
+    [
+     "10.b",
+     "DHHL Afforable Housing / Modular Housing",
+     "High",
+     "",
+     "",
+     "1. Draft DA received week of 10/13/2025 - 1/14/2026 Wyeth, Sun, Patti, Christian to discuss DA<br>2. Presentation for the Union, meeting 9/5 2:00 pm with carptener union;<br>3. Need Geotech report; 4/13/2026: Sun received geotech fee proposal, needs to be signed by Patti. The geotechnical borings and testing should be performed after mass grading construction, <span class=\"upd\">so this is still pending.</span><br>4. LIHTC award: Submitted LIHTC Application 2/20/2026; <span class=\"upd\">Prepare for 2027 funding round Nov/Dec</span><br>5. Modular house option:<br>- LIHTC application due Feb 2026 (2 applications - kupuna/multi-family and single family)<br>- SF (40 Units) : 4% LIHTC - Sun received Samsung contract<br>- Kupuna (28 Units): 4% LIHTC, Multi-family (64 Units): 4% only<br>- Market study: Kinetic Valuation Group, need 50% done.<br>- Utility Will-Serve Letters: Electric (ok), WWTP, Water<br>- Entity/Organization<br>- Met with DHHL: Decided to submit building permits for three LIHTC projects using DHHL's prototypes for this funding round (2025). May switch to Modular when inspection/permitting/certification issues are resolved with the County.<br>- Need to work on development agreement.<br>- Patti wants to collaborate with Hawaiian artist/interor design for color and final touch-up.<br>- Need to confirm appliances, vanities, faucets, etc for multi-family: Will contact Dean (Mark Development) for their feedback.<br>6. SHPD Clearance<br>- 3/10/2026 Sun Update: Included language in LIHTC application<br>- Met with representative of Manufacturer in Vietnam (Amir - Ohana Control Systems / TLC Modular USA), Samsung looks to be middle man, potential to deal straight with Manufacturer in the future",
+     "",
+     "",
+     "",
+     "",
+     "Refer to separate task list"
+    ],
+    [
+     "10.1",
+     "Plan Approval Submittal",
+     "High",
+     "2024-11-15",
+     "2024-12-20",
+     "1. Lawrence provided base Cad file<br>- Plan Aproval design set ready for submission<br>- <b> Need to attach Owner Authorization Letter - Wyeth, Sun to check with DPI the form and requirement</b><br>- Sid will reach out the county for concurrent review of Plan Approval and Bldg Permit<br>- Sun to follow up with Sid, Sid provided instruction<br>- Confirm with DPI if they can submit the application<br>- Drainage plan and calculation submitted to DPW on 1/12/2025<br>- Palekana will submit Plan Approval (Applicant: Sun-Ik Ham)<br>- Need approve Palekana's fee proposal to proceed.<br>- Palekana will also submit building permit sets for 3 LIHTC projects and assist us in setting up inspection/permitting procedure of modular homes<br>- Palekana submitted Plan Approval pending until we clear Drainage Plan; Sun sent follow up email to Lawrence 3/31/2026. Approved DHHL (Lot A3) Drainage Report 4/1/2026 received.",
+     "2024-12-27",
+     "ASAP.<br><span class=\"upd\">\"Sorry I could not take your call.  While having Plng send it to DPW may sound logical, the PA application could be deemed unacceptable as it would not include all of the required items and especially since applns are filed on EPIC.    I would suggest sending it to DPW and inserting the approved plan with the appln via EPIC.  You could submit the PA with the unapproved grading plan with a note that DPW is reviewing it and will provide it to Plng upon Its completion; however, Plng will probably not even look at the partially completed submission until receipt of the approved plan. \"</span>",
+     "",
+     "",
+     ""
+    ],
+    [
+     "10.2",
+     "Building Permit<br><span class=\"upd\">(Affordable Housing)</span>",
+     "High",
+     "",
+     "",
+     "1. Submitted application, Need to pay the building permit fee this week; Paid for multi-family side, not single family yet (will submit building permit in December 2025) - Johnny (DPI) is addressing comments (Multi-Family) - Construction cost to increase for all 3 projects - Add 4%<br>- (Single Family)- Sun has pricing<br>- February 2026: Sample Units - Building Permit submitted for Modular Type A (4 bedroom) and Type B (3 Bedroom). Sun will submit 2 bedroom unit next month (March/April 2026)<br>- Naio (multi-family): Submitted 10/29/2025 (conventional building) - under review<br>- Ho'ola (single-family) is modular - Site plan to be submitted in April/May 2026 (as soon as prototype is approved)<br>2. Ask Sid to schedule a meeting with Planning/Mayor to discuss the modular housing<br>3. Ongoing, Feb 10<br>4. On going: Revising the drawings based on new unit mix<br>5. Need to process payment No. 1<br>- Decided to submit building permits using DHHL's prototype for this funding round.<br>- DPI to prepare documents and Palekana to submit the drawings.",
+     "2025-02-10",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "10.3",
+     "EA",
+     "High",
+     "",
+     "",
+     "Ongoing",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "10.4",
+     "Archeological",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "10.5",
+     "Land Donation/<br><span class=\"upd\">Development Agreement</span>",
+     "High",
+     "",
+     "",
+     "1. Sun/Wyeth to schedule weekly meeting with DHHL;<br>2. Sun to find out the process, and benefit of timing;<br>3. Site Control;<br>4. The Applicant or an affiliated entity must have control of the site in a form acceptable to HHFDC and submit one of the following with the application: an executed lease or sales option agreement, fee simple deed, executed land lease, or any other documentation acceptable to HHFDC. Evidence of site control must be provided for all proposed sites;<br>5. Appraisal - Let Nan know about the two proposals -1/14<br>6. Need to confirm donation letter (Nan--&gt; DHHL);<br>7. Patti will draft a donation acceptance letter and receive DHHL approval;<br>8. Patti/Wyeth are working on donation letter;<br>9. Development agreement;<br>→ HHFDC may request additonal info about site control.<br>→ DHHL should give a thank letter for the land donation to get tax credit.<span class=\"upd\"> (Nan to provide a sample letter/ template)</span><br>- 2/27/2026: KD to send to DHHL, DA that addressed all of KD attorney's comments, 3/10/2026 Sun Update: Patti sent to DHHL last week.",
+     "2025-04-30",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "11",
+     "Fair share contribution to mitigate the potential regional impacts of the property with respect to parks and recreation, fire, police, solid waste disposal facilities and roads.",
+     "Medium",
+     "",
+     "",
+     "- Response from sid: This must be addressed before Final Plan Approval or Final Subdivision (which does not include the pending bulk lot or the planned MCX zoned subdivision).  The subdivision reference is more to the creation of the single-family residential lots.  Hence, Plan Approval for the affordable housing would be applicable.  However, it does not apply to affordable housing.  The condition states:<br><br>- \"This condition shall not apply to any housing units constructed within the subject property to meet the affordable housing requirement in Chapter 11 ( Housing), Section 11- 4( b), Hawai`i County Code, and so certified by the County Office of Housing and Community Development, excluding any units constructed for excess housing credits.\"<br><br>- However, for non-affordable housing projects, this provision would apply. Credits for some \"general improvements\" could be taken, which would reduce the obligation.",
+     "2024-10-01",
+     "QQ. The applicant shall make its fair share contribution to mitigate the potential regional impacts of the property with respect to parks and recreation, fire, police, solid waste disposal facilities and roads. The fair share contribution shall become due and payable prior to Final Site Plan Approval and Final Subdivision Approval. The fair share contribution shall have a maximum combined value of $9,645. 17 per multiple family residential unit, $15, 030.92 per single family residential unit). The total amount shall be determined with the actual number of units according to the calculation and payment provisions set forth in this condition.",
+     "DPP, appropriate agencies and County Council",
+     "",
+     "Ordinance No 21-27, QQ"
+    ],
+    [
+     "12",
+     "800-foot setback from the Queen Ka'ahumanu Highway",
+     "Complied/Completed",
+     "",
+     "",
+     "Completed",
+     "",
+     "Final Site Plan Approval or land alteration activities",
+     "DPP",
+     "",
+     "Ordinance No 21-27, S"
+    ],
+    [
+     "12.1",
+     "A copy of the metes and bounds description for this open space area",
+     "Complied/Completed",
+     "",
+     "",
+     "Completed",
+     "",
+     "prior to receipt of Final Site Plan Approval or land alteration activities, whichever occurs first.",
+     "DPP",
+     "",
+     "Ordinance No 21-27, S"
+    ],
+    [
+     "12.2",
+     "proposed covenant(s)",
+     "Complied/Completed",
+     "",
+     "",
+     "Completed",
+     "",
+     "prior to receipt of Final Site Plan Approval or land alteration activities, whichever occurs first.",
+     "DPP",
+     "",
+     "Ordinance No 21-27, S"
+    ],
+    [
+     "12.3",
+     "Record the approved covenant(s)",
+     "Complied/Completed",
+     "",
+     "",
+     "Completed.  An Open Space Buffer notice has been recorded in the Bureau of Conveyances as Document No. 2007-006828.",
+     "",
+     "prior to the issuance of Final Site Plan Approval or land alteration activities, whichever occurs first.",
+     "",
+     "",
+     "Ordinance No 21-27, S"
+    ],
+    [
+     "13",
+     "Solid Waste Management Plan",
+     "Complied/Completed",
+     "",
+     "",
+     "- According to the annual report, An initial solid waste management plan has been approved by the County by letter dated August 29, 2008.<br>- Hunt sent draft SWM plan on 10/23<br>- According to Sid, this SWM is final approved SMW, has complied",
+     "",
+     "Solid Waste Management Plan shall be prepared and submitted for approval to the Department of Environmental Management prior to submitting plans for Final Site Plan Approval review.",
+     "DEM",
+     "",
+     "Ordinance No 21-25, I<br>Ordinance No 21-27, DD"
+    ],
+    [
+     "14",
+     "Final Plan Approval: identify all existing and or/proposed structures, paved driveway access and parking stalls, landscaping, etc:<br>1. Overall site plan- showing parking and setbacks<br>2. Building floor plan and elevations<br>3. Site drainage plan approved by DPW<br>4. Landscaping plan",
+     "High",
+     "",
+     "",
+     "- Site improvement:<br>- DHHL site:<br>1. Need to know the roadway design (county dedicatable?)<br><br>- county dedicatable roadway<br>- check with DHHL regarding landscaping<br>- 1.14 Will submit the plan approval when DPI finishes revsion of the layout without DWS approved drainage plan --&gt; Sid will inform the planning dept to prevent immediate rejection<br>- Sun followed up with Lawrence and received approved drainage report 4/1/2026",
+     "",
+     "Prior to construction on each of Lots",
+     "",
+     "",
+     "Ordinance No 21-25, F<br>Zoning Code, Chapter 25, Rule No. 17"
+    ],
+    [
+     "15",
+     "UH Condition",
+     "Low",
+     "",
+     "",
+     "- Electrical will provide conduits and stubs out at UH;<br>- Overhead power line will be changed to UG, Kraig will coordinate with UH and HECO;<br>- Water: will leave as existing",
+     "",
+     "",
+     "",
+     "",
+     "Ordinance No 21-27, FF"
+    ],
+    [
+     "16",
+     "Park Master Plan",
+     "Medium",
+     "",
+     "",
+     "Not started yet",
+     "",
+     "Phase I development",
+     "Dept of Park and recreation",
+     "",
+     "Ordinance No 21-27, R"
+    ],
+    [
+     "16.1",
+     "2 Acre of outdoor performing arts center",
+     "Medium",
+     "",
+     "",
+     "Need to find a location, may be in business park.",
+     "",
+     "shall be operational before the submittal of any land subdivision or building permit applications for any residential development beyond the aggregate of the already approved five hundred (500) residential units.<br><br>Later",
+     "",
+     "",
+     "Ordinance No 21-27, R"
+    ],
+    [
+     "17",
+     "Drainage Study",
+     "Complied",
+     "",
+     "",
+     "- Previous reports provided by Sid. Drainage study is case by case, business park and road 2 had drainage study already<br>- Completed for DHHL site, approved 4/1/26",
+     "",
+     "A drainage study shall be prepared and submitted to the Department of Public Works prior to issuance of any construction permit.",
+     "DPW",
+     "",
+     "Ordinance No 21-25, H<br>Ordinance No 21-27, CC"
+    ],
+    [
+     "18",
+     "Ane Keohokalole Hwy to Kaiminani Drive, traffic signals installed at the intersection of Ka'iminani Drive and Ane Keohokalole Hwy",
+     "Low",
+     "",
+     "",
+     "",
+     "",
+     "prior to the issuance of building permits for more than five hundred (500) single-family residential lots and/or multiple-family residential units, and prior to occupancy for more than<span class=\"upd\"> thirty thousand (30,000) square feet of commercial area</span>, and more than sixty (60) hotel units; or whenever the Department Public Works reasonably determines it is warranted; or once the Department of Public Works receives enough complaints to warrant a traffic study at the developer's cost.",
+     "",
+     "",
+     ""
+    ],
+    [
+     "19",
+     "Emergency Response Plan",
+     "Low",
+     "",
+     "2028-04-01",
+     "",
+     "7/20/",
+     "Prior to the issuance of a certificate of occupancy.",
+     "",
+     "",
+     "Ordinance No 21-25, K<br>Ordinance No 21-27, HH"
+    ],
+    [
+     "20",
+     "New Connector Road (Road 1)",
+     "Low",
+     "",
+     "",
+     "",
+     "",
+     "The applicant shall defer the submittal of any land subdivision or building permit applications for any residential development beyond the aggregate of already approved nine hundred (900) single-family or multiple-family residential units unless and until the construction cost of Road 1 is completed either by the applicant or some other entity or if an alternative public road connection between the project area to Mamalahoa Highway becomes available.",
+     "",
+     "",
+     "Ordinance No 21-27, U.4"
+    ],
+    [
+     "21",
+     "DOE Agreement and obligation",
+     "Low",
+     "",
+     "",
+     "Need to discuss with DOE",
+     "",
+     "within two years of the issuance of certification of occupancy for any multifamily residential building, or within two years from the completion of any single-family residential buildings within the development",
+     "DOE",
+     "",
+     "Ordinance No 21-27, GG"
+    ],
+    [
+     "22",
+     "Dry forest",
+     "",
+     "",
+     "",
+     "1. Need to maintain the fence, need to understand our obligation;<br>2. Malachi Krishok, Bowers + Kubota<br>3. Need to ensure we are following our BMP maintenance on site (Jason Big Island Team)<br>- Jason's response: We have fence and firebreak; if anything else is needed, please specify - Char re-sent bullet points on 11/20/2025 - Wyeth sent comments 11/20/2025",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "23",
+     "Racetrack",
+     "Low",
+     "",
+     "",
+     "Sent team information via email on 9/24/2025",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "24",
+     "HLPC (Hawaii Leeward Planning Conference) Presentation",
+     "",
+     "",
+     "",
+     "- HLPC Meeting 12/5/2025 at Westin Hapuna Beach Resort Mauka Ballroom: 10:50 AM Nan, Inc. Presents<br>- There is much interest in the news that Palamanui Nan, Inc. is starting to sell lots in Phase 1 of  Palamanui (https://www.palamanuikona.com/), and I am writing to ask if you are available to speak about the project at the HLPC Members' Meeting on Friday, December 5th.  The meeting will convene at 10:30 a.m., and your and/or designated speaker(s) presentation would start around 11:30 for twenty minutes.  We are awaiting confirmation on location (Mauna Kea Beach Hotel or Westin Hapuna).",
+     "2025-12-05",
+     "",
+     "",
+     "",
+     ""
+    ]
+   ],
+   "hidden": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "id": "Waikoloa",
+   "name": "Waikoloa",
+   "title": "Waikoloa - Task Tracker",
+   "updated": "2026-08-04",
+   "type": "tracker",
+   "columns": [
+    "No.",
+    "Task Description",
+    "Priority",
+    "Start",
+    "Ends",
+    "Status",
+    "Due",
+    "AHJ",
+    "Responsible Party",
+    "Reference"
+   ],
+   "rows": [
+    [
+     "1",
+     "Grading",
+     "High",
+     "2025-04-15",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1",
+     "Topo Survey",
+     "",
+     "",
+     "",
+     "- Lawrence to survey the road entrance and well site by end of this month (November); Map from Wes Thomas - Received 12/7/25<br>- Completed 1/5/2026<br>- Look at Wili Wili tree logistics - how to protect them",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.1",
+     "Grading Drawing",
+     "High",
+     "",
+     "",
+     "- Pending topo survery to move forward - Completed 1/5/2026<br>1. SUP site: Complete<br>2. Nusery Sites: Complete<br>3. Track: need grading permit, design will complete by 8/8/25, will submit for permit, with NPDES;<br>- 11/5/2025 Per Chad: Grading permit for boring trail grading package was issued by the County<br>- The NPDES was issued by DOH<br>- Mass grading package was submitted to the County on 10/13/2025; will update NPDES for this work once the boring trail work is initiated on-site<br>4. Well site and access: received Chad's fee",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.2",
+     "Mass Grading",
+     "",
+     "",
+     "",
+     "1. Mass grading package was submitted to the County on 10/13/2025; will update NPDES for this work once the boring trail work is initiated on-site<br>2. Photo and written verification required of 50 ft preservation buffer required<br>3. Jason pulled Mass Gading Permit; Jason does not have any equipment to begin grading",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.3",
+     "Archaeological",
+     "High",
+     "2025-04-21",
+     "",
+     "1. ASM completed the Archaeological Reconnaissance Survey, map provided, Matt to update the report for SUP<br>2. Matt to prepare one KPA for the whole area to support the SUP application, and then use that information to fill out the specific KPA questions in the GWUPA form for CWRM review; Confirmed they received our CWRM application<br><br>- Meeting 9/24/25 with Matt to go over KPA; Matt to finish KPA assessment by 10/2025. Wyeth to provide additional comments to KPA before Min can touchbase with Matt - need to have Matt identify all uses<br>- KPA completed<br>- Orange fence - Matt waiting for grading to be done around it",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.4",
+     "Geotech report",
+     "",
+     "",
+     "",
+     "- Geolabs: received grading permit for the trail; Waiting for someone to make the trail for Geolabs;<br>- Topo completed<br>- Jason - status on trail: We don't have equipment for it and discussed with Nan, he said there's no rush<br>→ Need to drill 7-8 holes in SUP building area: John can generate a report and wait for mass grading to reschedule boring - John submitted geotech report 12/16/2025.",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.5",
+     "Potable water connection",
+     "High",
+     "",
+     "",
+     "- Hawaii Water Service, Stephen<br>1. Need information such as development plans, estimate of water use, requirement of fire connection, irrigation requirements and timing. Chad sent updated PER<br>2. HWS will assess the request and may issue a “willing to serve” letter to the developer.<br>3. “Extension Agreement” and payment of “Contribution in Aid of Construction” fee to secure the water commitment.<br>4. Existing water pressure is low; Use an on site booster pump system",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2",
+     "Asphalt/Concrete Batch Plant SUP",
+     "High",
+     "2025-04-21",
+     "",
+     "1. Check with Sid how long it takes for SUP to be reviewed and approved after submission:<br>- It takes about 2 weeks for the application to be reviewed and deemed \"accepted\".  Once accepted, the request should be on the Planning Commission's agenda 2-3 months (usually 3 months).  The commission can and usually makes a decision at the first meeting. Char drafted response to Planning Dept and Police Comments, Fehrs &amp; Peers provided response to address Police Comments; Char sent OPSD response to Planner Alex Roy on 6/1/26; Wyeth to contacted Police to address comments, send out updated response to Planner 6/9/2026<br>2. Submitted SUP on EPIC, 2/26/2026 - Application number: PL-SPP-2026-000121; Acceptance letter received on 3/17/26, accepted March 4, 2026; Public Hearing notice received 4/28/2026, Public Hearing by Leeward Planning Commissions on<b> 6/18/2026</b> at West Hawaii Civic Center, Council Chambers, Bldg A, 74-5044 Ane Keohokalole Hwy, Kailua-Kona;<span class=\"upd\"> LPC approved, pending written approval</span><br>- Sign vendor: Signs by Jackie Sign installed 3/24/2026<br>- SPO notification sent 3/25/2026; sent affidavits to Planning Department on 3/26/2026<br>- Charlene sent out second notice to SPO<br>- Jason working with Meiyi/Xin on building design for base yard; Nan wants to meet with designers and Jason on office design, Meiyi/Xin to coordinate<br>3. Met with CM Hustace on 2/6/2026; confirmed his support for us - Leahna sent draft support letter for CM Hustace if he wants to consider submitting to team on 3/25/2026 - Wyeth followed up with CM, but don't want to push too much",
+     "<span class=\"upd\">2025-10-31</span>",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.1",
+     "Site Plan",
+     "High",
+     "",
+     "",
+     "- Complete",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.2",
+     "Preliminary elevation of all structures",
+     "High",
+     "",
+     "",
+     "- Complete",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3",
+     "Consultants",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.1",
+     "Survey",
+     "High",
+     "",
+     "",
+     "- Surveyor: Wes Thomas Aso. a mets and bounds for SUP area, added well area<br>- Lawrence to complete by end of week 1/2/2026<b>-</b> completed<br>- <span class=\"upd\">Chad sent CAD file to Lawrence to update metes and bounds (be within 14.9 ac)</span>",
+     "2025-09-19",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.2",
+     "Traffic",
+     "High",
+     "",
+     "",
+     "- Start 9/2/25; Received traffic study draft 10/31/2025; Chad to respond when topo received<br>- Completed 1/12/2026",
+     "2025-09-23",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.4",
+     "Archaeological",
+     "High",
+     "",
+     "",
+     "Matt said AIS is ok for SUP - SHPD acceptance letter for ARS - no historic features affected, permit may proceed",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.5",
+     "Soil, geo tech report",
+     "Low",
+     "",
+     "",
+     "No need for SUP? Geolab, waiting for access trail prep, check with County",
+     "2025-07-30",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.6",
+     "Preliminary Engineering report (PER).",
+     "",
+     "",
+     "",
+     "1. Chad, T&amp;M; Received updated PER 11/19/2025<br>2. Road access, water, wastewater, drainage, fire protetion;<br>3. Per Nan: Power connect to grid. Lok: for power: PV with battery, and generator for plant, and telecom: permanent line from spetrum/hawaii tel.",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3",
+     "Well",
+     "",
+     "",
+     "",
+     "1. Draft design and bid documentation - Need to include front end specs (general requirements section) - ask Tom Nance; Let Tom Nance know to leave out DIV 01<br>2. Fire protection water will be supplied from new well water system<br>3. Pending TOPO- Min to send TOPO to Tom Nance. Tom Nance to complete design by end of week 1/16/2026, then Jason can go out for bid - Design received, followed up with Jason - Need to discuss with Nan about well contractor; Received bid - waiting for Nan and Tom Nance's review - Nan will self-perform<br>4. Min submitted application- 3/18/2026; Kihei emailed CWRM the KPA",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "4",
+     "PV",
+     "",
+     "",
+     "",
+     "On Ag land for SUP use, for sell too? Check tax credit: 65% tax credit by first year, Sunset date Dec 21, 2028 , tax depletion in 5 years",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "5",
+     "General Plan Update",
+     "",
+     "",
+     "",
+     "1. Met with council member James Hustace on 9/22/2025- James will support. Wyeth to follow up with James to continue seeking support (to change from Urban Expansion to Heavy Industrial); Letter request finalized 9/24/2025, Wyeth sent letter to James - James approved letters and forward to CM Ashley<br>- Met with CM Hustace on 2/6/2026; confirmed his support for us<br>2. Sid to assist asking other Council members for support;<br>3. New Bypass Road and access to our property - review EIS and new road routes, internal review of potential access through our lot to Waikoloa Village from bypass road; current shown bypass road doesn't go through our lot, but the EIS shows others that may go through - <span class=\"upd\">we will keep an eye on this</span><br>- Follow up with Sid on any updates for the GP. Sid spoke to CM Ashley K who confirmed they will be updating the map, 3/24/2026<br>- <span class=\"upd\">Our requests for change didn't make it on the General Plan update</span>",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "6",
+     "Building Permit",
+     "",
+     "",
+     "",
+     "Building Permit (Nan) - within 5 years -look at conditions accepted by planning commission",
+     "",
+     "",
+     "",
+     ""
+    ]
+   ],
+   "hidden": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "id": "Puunene_Mill",
+   "name": "Puunene Mill",
+   "title": "Puunene Mill - Task Tracker",
+   "updated": "2026-08-04",
+   "type": "tracker",
+   "columns": [
+    "No.",
+    "Task Description",
+    "Priority",
+    "Start",
+    "Ends",
+    "Status",
+    "Due",
+    "Deadline",
+    "AHJ",
+    "Responsible Party",
+    "Reference"
+   ],
+   "rows": [
+    [
+     "<b>1</b>",
+     "<b>Demo</b>",
+     "High",
+     "2024-09-01",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.1",
+     "Demo Plan and Permit",
+     "High",
+     "2024-08-01",
+     "",
+     "1. DPP completed review, pending SHPD and historical review; Demo permit passed agency review - Min called DPP and they said it's in final review and may be ready in 2 weeks (5/12/2026) - Submitted test plan to SHPD last friday, 5/15/26, Paid permit, waiting for final approval; received approval<br>2. DPP said they cannot just allow demo aboveground structure<br>- SHPD provided review 1/26/2026, Matt will provide proposal in ~two weeks; propose limited monitoring during demo - Min followed up with County; still pending proposal - Min will call to resubmit transmittal and also remove some TMKs - may need to be reviewed again; stuck with planning (Stanley - historical) - Min will follow up with him this week 3/10/2026<br>3. <b>Architectural Assessment</b>: Mason will begin working on preserved plan and take b/w photos: Photographers will resume work this week due to weather, <span class=\"upd\">ongoing</span><br>- Matt: Subsurface testing strategy by April 2026 (2 months) - Need to give SHPD testing strategy: We let them know to test/trench as many as you need; Matt had a good discussion with SHPD on testing strategy<br>- HARS final report <span class=\"upd\">submit to SHPD by end of July 2026 </span><br>- Preservervation Plan (Mason) - 18 months from project initiation; <span class=\"upd\">SHPD letter with approval for submitted subsurface test plan received on 7/9/2026;</span><span class=\"upd\"> Nan reviewed preservation plan; follow up/look through Min's email to see status of this</span><br>- Mason provided HARS draft and draft preservation plan 5/4/2026<br>- Draft AIS testing strategy was reviewed by SHPD, came back with comments on 6/9/2026; ASM provided AIS fee proposal 7/9/2026, Nan approved<br>4. <b>Demo phasing plan</b> for Nan by end of Feb 2026 (Sugar Museum is not included in this demo permit) Keep Museum and provide PV, Min working with Jason and John.<br>- Demo PM hired",
+     "",
+     "",
+     "MZ",
+     "",
+     ""
+    ],
+    [
+     "1.2",
+     "Reconaissance Level Survey",
+     "High",
+     "2025-10-01",
+     "",
+     "- Completed and accepted by SHPD",
+     "",
+     "",
+     "Mason",
+     "",
+     ""
+    ],
+    [
+     "1.3",
+     "SHPD Review",
+     "High",
+     "",
+     "",
+     "1. The HICRIS Project Number is 2025PR00139.<br>2. Revised RLS submitted 9/9/2025 with post-demo plan;<br>3. 11/13/25 - Revised RLS submitted to SHPD 11/17/2025, finalized mitigation and is good to go (may have been submitted as well) - Accepted<br>4. <span class=\"upd\">Pending AIS</span><br><br>- Assessment: Which buildings could be options for historical assessment/preservation; tax credit",
+     "",
+     "",
+     "Mason",
+     "",
+     ""
+    ],
+    [
+     "1.4",
+     "Archaeological Inventory Survey",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.5",
+     "Sugar Museum",
+     "High",
+     "",
+     "",
+     "1. Board are support the move, need to work out the details.<br>2. Building moving - Schedule/Coordinate with museum - Internal planning with team - earliest Museum can move is 2029 due to HECO substation demo<br>- Look into Museum hours / downtime (closed time/days)<br>- Nan gave direction on 5/8/26, no relocation<br>- <span class=\"upd\">Look at how to develop this area with the museum </span><span class=\"upd\">in place</span>",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>2</b>",
+     "<b>Master Planning</b>",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.1",
+     "Master Planning",
+     "High",
+     "",
+     "",
+     "1. Talked to mayor #2, support on the urban boundary expansion; Wyeth call with Josiah 12/31/2025. Wyeth provided maps to county/ planning director<br>2. Department of Public Works got back to Wyeth about relocating baseyard location 1/6/26, will get acreage and propose what area is best for us<br>3. Need to get topo survey for UG utilities, waiting for proposal;<br>- Topo survey needs to be completed by end of October 2025;<br>4. Chad will start work on the design for ug waste/water;<br>5. Need work on the easements: cancel, relocate, etc - Easements completed<br>6. Need to get back to them, provide access specs - Wyeth emailed Josiah to meet with new planning director. Met 3/25/2026 at 11AM, Wyeth will see Maui Mayor this Thursday, 5/28/26 @ 1PM - team to get fancy beverages - sparkling water and tea (stock in fridge)<br>- <span class=\"upd\">Monitor Maui Central site for any updates - team to check and report back next week</span>",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.2",
+     "Wells/Water",
+     "Medium",
+     "",
+     "",
+     "1. Chad completed water master plan 5/30; Chad to revise scope of water master plan for initial phase<br>2. Min is inquring DWS about the water to lot 3 warehouse;<br>3. Min to find email regarding the gray water from well<br>- Talk to neighbor (Hoonani Village) about their well/water - can we get water from them for future development? Alpha needs water (their water source is non-potable)",
+     "",
+     "",
+     "",
+     "",
+     "RO system, about $1.2 million for 1M gpd"
+    ],
+    [
+     "2.3",
+     "Wastewater",
+     "Medium",
+     "",
+     "",
+     "- Well service letter received from WWB",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.4",
+     "Power",
+     "Medium",
+     "",
+     "",
+     "1. Subdivision easement agreement sent to Micah; Min and Wei gathered easement documentation, Micah to review<br>2. HECO is working on the substation lease agreement<br>3. We have completed the design and it is currently being routed for in house approvals.<br>4. Right now power supply from Mahi Pono, need to work on request powers from HECO<br>5. Bagasse House: HECO is working on the design, will take about 3 months.<br>- HECO sent proposal for power connection<br>6. Service requests have been submitted to HECO on 1/30; HECO has issues with power because of Lahaina<br>7. GP office<br>- HECO sent proposal for power connection<br>8. Track shop (Tractor Building)<br>- HECO sent proposal for power connection<br>9. Meat Market<br>- HECO sent proposal for power connection<br>10. Power for Sewer Lift Station<br>- PV with battery<br>- Need monitoring for power supply to understand power usage for a month<br>- John installed the meter for 2 lift stations, 5/13/2026; can switch to PV power for 2 lift stations eventually<br><br>- Onsite meeting with HECO on 12/2/2025 to discuss clean/relocate existing pole<br>- Min working on master plan for HECO - ~20 year timeline - Min to finalize Master Plan and send by end of week-1/16/2026 - Keep roadway width the way it is per Nan - need to look into width of road required by County; HECO is reviewing our proposal to relocate pole -<span class=\"upd\"> HECO revising fee proposal for the new poles, expect early July</span><br>- Min to work with HECO to put existing poles in right-of-way<br>- Min need to work with Electrical Engineer to add service request for (2) existing lift stations; John is monitoring power use (free)<br>- Provide future development plan and timeline so HECO can build accordingly - Met with HECO and electrical engineer on site: Provided draft master plan and 4 individual service requests ~4/10/2026<br>- Office and warehouse power <b>- </b>Office condition is not good, not fully vacant<br>- May need new service pending Post Office return<br>- <span class=\"upd\">Engage </span><span class=\"upd\">Serg</span><span class=\"upd\"> or Lunig for substation -</span><span class=\"upd\"> fee proposal (Follow up with Min on meeting with Serg 7/21/2026); Min to send us HECO contact</span><br>- <span class=\"upd\">Potentially keep existing substation</span>",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.5",
+     "Fire sprinkler system",
+     "Medium",
+     "",
+     "",
+     "On Hold til construction start",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>3</b>",
+     "<b>Entitlement</b>",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3.1",
+     "Market Study - Colliers",
+     "High",
+     "2024-08-22",
+     "",
+     "Completed.",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3.2",
+     "Change Urban boundary",
+     "High",
+     "2025-10-21",
+     "",
+     "1. Maui DPP on our Puunene Mill site request for urban boundary change:<br>- Please write up a narrative explaining why you would like this change and<br>- What benefits it would bring to the County. Also,<br>- What community plan designations would you like to see for the expansion area?<br>- Can you revise the map to show that as well?",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>4</b>",
+     "<b>Utilities Design</b>",
+     "High",
+     "",
+     "",
+     "On hold",
+     "",
+     "",
+     "",
+     "",
+     "Ordinance No 21-27, D<br>Ordinance No 21-25, D"
+    ],
+    [
+     "4.1",
+     "Site survey",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "Lawrence",
+     "",
+     "Ordinance No 21-27, S"
+    ],
+    [
+     "4.2",
+     "Civil Design and Utilities",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "Chad M",
+     "",
+     "Ordinance No 21-27, S"
+    ],
+    [
+     "4.3",
+     "Power",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>5</b>",
+     "<b>Existing Renovation</b>",
+     "Medium",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "Ordinance No 21-27, S"
+    ],
+    [
+     "5.1",
+     "GP Roadway Office",
+     "Complied",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "Ordinance No 21-27, S"
+    ],
+    [
+     "5.2",
+     "Bagasse Warehouse",
+     "High",
+     "",
+     "",
+     "1. Submitted HECO service request<br>2. Potential tenant: G-Volt Holdings, Biomass, on developing carbon-negative, waste-to-energy solutions. Need 480V/600 amp power, water for office use.",
+     "",
+     "",
+     "",
+     "",
+     "Ordinance No 21-25, E<br>Ordinance No 21-27, U.d, e"
+    ],
+    [
+     "5.3",
+     "Building'siding and roof repair",
+     "Low",
+     "",
+     "",
+     "Need final field verify dimension, etc.",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>6</b>",
+     "<b>Aina Lani Pacific- Ho'onani Village</b>",
+     "High",
+     "",
+     "",
+     "- Alpha project.<br>1. Notice of Public Scoping Mtg for EIS Review Process (Hoonani Village) 3.27.25;<br>2. Follow up with them the traffic study, schedule a meeting with them<br>3. Review EIS, provide comments by 12/30/2025 to send <b>- </b>Sent to Matt. Had a meeting with Matt and Greg 1/5/2026, they will make sure to update EIS to comply with setback and drainage comments<br>- Received EIS 3/23/2026<br>- Met about Alpha's Subdivision - Nan signed off and letter notarized 7/28/26",
+     "",
+     "",
+     "",
+     "",
+     "Ordinance No 21-25, E<br>Ordinance No 21-27, U.d, e"
+    ],
+    [
+     "<b>7</b>",
+     "<b>Mahi Pono and HECO, water</b>",
+     "High",
+     "",
+     "",
+     "- Meeting with Mahi Pono on 8/13/25<br>1. Cistern water only for fire protection. MP will disconnet their C&amp;H warehouse fire protection system. MP will draft a water use agreement<br>2. Power from MP, we will convert to all HECO power<br>- On track to get new HECO substation - design for new substation is under review<br>- <b>The substations will </b><span class=\"upd\">start running mid 2028</span><b>. All exisiting power will be taken down by then. We have 2 years to get our own power.</b><br>- <span class=\"upd\">8/4/2026: Chris Bill is coordinating with Maui Electric a meeting - Chris met with three electrical design engineering firms at the substation site and expect to have their proposals ready in about two weeks. Also waiting for HECO to let us know when they want to meet.</span>",
+     "",
+     "",
+     "",
+     "",
+     "Ordinance No 21-25, I<br>Ordinance No 21-27, DD"
+    ],
+    [
+     "7.1",
+     "HECO substation Leasing",
+     "High",
+     "",
+     "",
+     "1. <span class=\"upd\">HECO leasing is expiring 12/31/2026, need to send fomal letter and work with HECO the demo; Should discuss with Serg and Min with thoughts of keeping substation</span><span class=\"upd\"> - Nan wanted to keep the substation; follow up with Nan</span><br>2. According to Mahi Pono, they expect to fully utilize their remaining time at the Puunene property to ensure their new substation satisfies all of their requirements.   This will require us to continue to serve them from our Puunene Substation until mid-2028. Therefore, we respectfully request an extension of our substation lease to one year after Mahi Pono vacates the Puunene property.  The extension would provide adequate time to remove our equipment, clean the property, and grade the land as needed.   This could potentially extend the substation lease term to June 30, 2029.<br>- Extend lease to June 30, 2029",
+     "",
+     "",
+     "",
+     "",
+     "Ordinance No 21-25, J<br>Ordinance No 21-27, EE"
+    ],
+    [
+     "7.2",
+     "Mahi Pono's substation and electrical equipment, power line demo",
+     "",
+     "",
+     "",
+     "1. Easement can be terminated between 06/12/2026 to 06/12/2028, have one more year after termination to relocate equipment<br>2. Currently Maho Pono is supplying power to Mill, MH want to submeter the power<br>3. They are working on the new sub-station, done by 2028",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "7.3",
+     "Discussion with County on support",
+     "",
+     "",
+     "",
+     "- Land sell to County: $30/sf<br>- Wyeth provided road design map, followed up with Josiah and Jordan on 4/1/2026",
+     "",
+     "",
+     "",
+     "WM",
+     ""
+    ],
+    [
+     "<b>8</b>",
+     "<b>Hazard Evaluation &amp; Emergency Resonse (HEER) Tier II Report</b>",
+     "",
+     "",
+     "",
+     "- Completed 3/17/25<br>- Report due by 3/1/2026 - Nan direction to not do report",
+     "2026-03-01",
+     "2025 report due March 1, 2026",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>9</b>",
+     "<b>Post Office</b>",
+     "",
+     "",
+     "",
+     "1. Tentative meeting to discuss the lease agreement.<br>- Informed Post Office renovation has been completed.<br>- Draft lease received 8/5, rental: $3,500/monthx59 with inflaction rate<br>- The Post Office person did a walk thru, had some punchlist need to be addressed, after that, they will hire a third-party professional environmental safety inspector to verify the building is free of termites and any environmental hazards.<br>- The Post Office will proceed with the move after successfully passing the inspection.<br>2. Termite tent; begin 10/8/2025;<br>3. Earliest move in is planned early October 2025<br>4. Final inspection 10/14/2025; after signed agreement, post office will need to request funding by 11/2025;<br>5. Need to have a blessing, TBD<br>- Invite mayor, Josiah, all council members<br>- Ask Maryanne to help coordinate<br>- Post master is on vacation, Min to confirm date when he returns - Locals want to move back, District is pushing back and does not want the move<br><br>- Still pending executed lease agreement and move back date; not responding to any follow up emails - Regional office is holding up everything, should we give deadline to sign or ask for compensation? USPS moved everything out recently, Min sent email on 3/26/26 and will send a follow up email 4/7/26 to confirm no response; will move on 4/9/26 and make Nan's coffee shop operated by Dan. Wyeth to inform CM Yuki Lei Sugimura<br>- Wyeth discussion with sen. Schatz office, they are following USPS to see what hold up is - They were informed of safety issues; but we showed emails confirming approved safe. Council member Yuki Lei Sugimura is following up on USPS",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>10</b>",
+     "<b>Annual Backflow preventer test</b>",
+     "",
+     "",
+     "",
+     "Done March 15",
+     "2026-02-01",
+     "due Feb of every year",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>11</b>",
+     "<b>Tax appeal</b>",
+     "",
+     "",
+     "",
+     "Min provided extra information 12/22/2025 - Complete; approved our appeal",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>12</b>",
+     "<b>Potential Amazon Site</b>",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "<b>13</b>",
+     "<b>National Historic Registration Tax Benefits</b>",
+     "",
+     "",
+     "",
+     "Assess any building that we can get tax benefit from",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ]
+   ],
+   "hidden": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "id": "Makakilo",
+   "name": "Makakilo",
+   "title": "Makakilo Quarry - Task Tracker",
+   "updated": "2026-08-04",
+   "type": "tracker",
+   "columns": [
+    "No.",
+    "Task Description",
+    "Priority",
+    "Start",
+    "Ends",
+    "Status",
+    "Due",
+    "AHJ",
+    "Responsible Party",
+    "Reference"
+   ],
+   "rows": [
+    [
+     "1",
+     "Lower Parcel 4",
+     "Complied/Completed",
+     "2025-04-15",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.1",
+     "Grading",
+     "Medium",
+     "",
+     "",
+     "Construction ongoing",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.2",
+     "Farrington Hwy Intersection",
+     "High",
+     "",
+     "",
+     "- This is now a State Highway; Micah sent MOU - Chad will continue to follow up on MOA - MOA &amp; BWS resubmitted<br>- Permit drawings submitted to DPP 7/15/2025, SHPD 6E also submitted to SHPD HiCRIS portal",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.3",
+     "Power supply",
+     "High",
+     "",
+     "",
+     "Ron Ho added power stub out into their drawings",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.3",
+     "Permit",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.4",
+     "Zoning change",
+     "High",
+     "",
+     "",
+     "- Wyeth spoke to Franz - should be a simple motion, meet with LUC, go back to director of DPP - Ensure Condition 4 has been met; DPP wants voluntary verification agreement (2017 annual report)<br>- Met with DPP May 12:<br>1. Ewa DP is on going, by later this year; Wyeth needs help monitoring;<br>- Draft request Residential to Industrial to DPP; Sent email regarding office in buffer area on 1/30/2026, Dina responded confirming receipt on 2/2/2026 and will review; Leahna submitted clean draft to team on 2/25/2026; Sent on 3/3/2026. Dina confirmed receipt, Wyeth sent follow up to DPP Min 3/24/2026; Wyeth and Leahna looking into whether KPA for a non-use is needed; Wyeth to respond to Franz - Leahna to look for info on KPA by 6/23/2026; <span class=\"upd\">KPA section then motion can be filed - finalize motion to file by 7/24/2026 - Email team that it's ready to file (finalize how to file) -</span><span class=\"upd\"> Cade's lawfirm that did original quarry expansion</span><br>2. Palailai: site plan show the proposed open park and view plane, and area can be developed.<br>3. Parcel 4: site plan to show the baffle between residential and industrial, general plan to show plan, traffic medigation; Incorporate convenience store - Compared I2 and IMX1<br>4. Unit 74 and Unit 82:  change upper site from Ag to Industrial<br>5. TOD is out<br>6. Make rendering, site plan, bike lane, etc<br>7. Marketing ongoing, received June 30",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2",
+     "Substation Relocation",
+     "High",
+     "",
+     "",
+     "Not pursuing",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.1",
+     "HECO design/PV",
+     "",
+     "",
+     "",
+     "1. PV Permit Review ongoing - submitted 12/19/25 to Palekana; Palekana submitted revisions to DPP on 4/1/2026, DPP prescreening is averaging about 4 weeks. Passed prescreen, received comments from DPP - PV location with John and Chad; DPP wants structural design for the building - John sent over structural for pad, but needs to update with correct callouts/titleblock. Once received, we can resubmit<br>- Resubmitted drawings with Structural design 6/22/2026<br>- Will submit revised set per comments 7/2/2026 -<span class=\"upd\"> comments addressed zoning - updated drawings received from Art, Meiyi to resubmit</span><br>- Meeting with DPP/Franz and Dina on 12/29/25 gave indication that PV should be fine in this area, no amends to CUP needed<br>- Received (3) PV bids<br>- Fee proposal from Palekana; Nan approved<br>2. Site power distribution and HECO service request - ongoing<br>3. Medium Voltage System:<br>- HECO service request submitted 11/3/2025 - Nan gave direction to take out HECO service and be self sufficient power supply; <span class=\"upd\">Min to discuss with Lok impacts on his design</span><br>- Schedule meeting with HECO to discuss having HECO meters on 46kV line; HECO confirmed can connect to 46kV line<br>- Submitted permit<br>- HECO working on design and fee proposal<br>- Hawaii Tel needs to confirm if we run new post to supply telephone lines in the quarry<br>- Building review approved with no comments<br>- Construction Lead: Case",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.2",
+     "Easement",
+     "",
+     "",
+     "",
+     "- Need to work with HECO for new easement<br>- Need to provide new easement for new pole and cancel existing easement for existing poles to be demolished",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3",
+     "Grading Permit",
+     "",
+     "",
+     "",
+     "1. Chad is working on PV site and dredge from another project that they want to store;<br>2. Grading permit is requested by DPP, Chad is working on the grading permit for upper quarry - submitted<br>- Mass grading is proceeding with the NPDES permit<br>- Geotech report: Geolab already completed field work, report is completed<br>- <span class=\"upd\">Wait to see if DPP makes comments on the PV site and grading area.</span>",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3",
+     "Request to DPP Parcel 74 for office space",
+     "",
+     "",
+     "",
+     "- Meeting with LUC 9/3/25 at 9:00 am, follow up with DPP regarding the plan;<br>- Meeting with DPP/Franz and Dina 12/29/25 indicated an office space in the buffer may not be allowed in the SUP, however, they will review what is proposed can fit in SUP; if not, we will need to amend the SUP.<br>- Min will help write up for office needs, follow up with GP for presonnel numbers.<br>- Submitted office proposal to DPP on 1/30/2026; Dina responded on 2/2/2026, will review <span class=\"upd\">- pending; Follow up with DPP - DPP provided comments</span><br>- DPP will review if compliant with existing SUP, if not, we will need to amend SUP along with removal of parcel 4",
+     "2025-12-17",
+     "",
+     "",
+     ""
+    ]
+   ],
+   "hidden": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "id": "Kauai",
+   "name": "Kauai",
+   "title": "Kauai Industrial Yard - Task Tracker",
+   "updated": "2026-08-04",
+   "type": "tracker",
+   "columns": [
+    "No.",
+    "Task Description",
+    "Priority",
+    "Start",
+    "Ends",
+    "Status",
+    "Due",
+    "AHJ",
+    "Responsible Party",
+    "Reference"
+   ],
+   "rows": [
+    [
+     "1",
+     "Topo Survey",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.1",
+     "Grading Drawing",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.2",
+     "Mass Grading",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.3",
+     "Archaeological",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.4",
+     "Geotech report",
+     "High",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "1.5",
+     "Potable water connection",
+     "",
+     "",
+     "",
+     "Future well (long term goal), catchment system for now; delivery of water supplement as required",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2",
+     "Asphalt/Concrete Batch Plant SUP",
+     "",
+     "",
+     "",
+     "1. Max Graham (Planner) provided proposal and list of what we need to do;<br>- Waiting to hear back who the surveyor will be<br>2. Identify 14.9 acres location - Area determined. Sent team concept program/site map on 4/7/26; Ask for LIDAR survey and provide info to Chad; <span class=\"upd\">Assessment of access road using IAL land, and if any restrictions</span><span class=\"upd\"> - no difinitive language; send to people that oversee</span><br>3. PSA Close date: 4/21/2026; pushed to 4/22/2026<br>- Request Topo; any reports<br>- Decommission the reservoir<br>- Balance is due on Friday, 4/17/26 10AM<br><br>- Landowner: Kauai Kaneko, LLC. Applicant: Grace Pacific<br>- Need SUP Approval from the Planning Commission",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.1",
+     "Site Plan",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.2",
+     "Preliminary elevation of all structures",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3",
+     "Consultants",
+     "",
+     "",
+     "",
+     "- List consultants:<br>- KPA - Nancy McMahon<br>- Archaeology - Nancy McMahon<br>- Drainage Engineer &amp; PER - Chad McDonald<br>- Biological Survey - AECOS, Inc.: Eric Guinther, Flor Mucino (PM)<br>- Survey - <span class=\"upd\">Will reach out to Don for surveyor; follow up. </span><br>- Traffic - SSFM International: Michael Packard<br>- Architectural - Nan, Inc.",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.1",
+     "KPA &amp; Archaeological",
+     "",
+     "",
+     "",
+     "1. KPA - Nancy McMahon<br>2. Archaeology - Nancy McMahon; Need to update map and share with them. Identify areas we want assessed<br>- Interviewed 1, need to interview 4 more; Need to complete interviews for the KPA and start on site work after she returns on 6/28/2026 - Ask Nancy if we should include Well in KPA<br>- Nancy accessed site on 7/6/2026<br>- Projected Timeline:<br>- a. Archaeological Literature Review: less than 3 to 6 months<br>- b. Archaeological Inventory Survey (AIS): 3 to 6 months<br>- c. Known Property Assessment (KPA): approximately 9 months<br>- Based on these estimates, the anticipated completion dates are:<br>- a. Archaeological Literature Review: approximately September 2026<br>- b. AIS: approximately September 2026 to December 2026<br>- c. KPA: approximately February 2027",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.2",
+     "Biological Survey",
+     "",
+     "",
+     "",
+     "1. Biological Survey - AECOS, Inc.: Eric Guinther, Flor Mucino (PM)",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.3",
+     "Survey",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.4",
+     "Traffic",
+     "",
+     "",
+     "",
+     "1. Traffic - SSFM International: Received retainer billing 3/23/26, COI on 3/31/26, sent concept program to Mike (SSFM) on 4/6/26 ; received updated report 6/25/2026",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "2.3.5",
+     "Drainage &amp; Preliminary Engineering report (PER).",
+     "",
+     "",
+     "",
+     "1. Chad McDonald - Waiolu Group<br>- Received updated PER 6/29/2026",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3",
+     "Well",
+     "",
+     "",
+     "",
+     "- Tom Nance submitted fee proposal, Nan approved<br>- To proceed with well drilling documents, following is needed:<br>1. <b>Civil Site Plan:</b> Civil engineer to prepare a site plan for the well drilling pad, sized for two wells, or provide a rough grading plan for Greg to use for well location and its proposed elevation. If available, provide a CAD base for the proposed development to Greg<br>2. <b>WCPI Permit:</b> 7/7/2026 Greg provided WCPIA Application. Need names for the two wells, and sections 6 and 7 to be completed<br>3. <b>Water Master Plan:</b> Is there a water master plan being developed for this project? It should include all intended uses for the proposed private water system. Greg will use this to determine the CWRM proposed withdrawal amount and pump capacity.",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "3.1",
+     "Well Construction",
+     "",
+     "",
+     "",
+     "- Pacific Well Drilling Services, LLC: Kihei Ahuna<br>- <b>6/1/2026 Email from Kihei:</b> For the overall Water well construction cost Including labor, materials, outside services, Overhead and margin, using Tom's typical spec per 24\"diameter finished hole to the specific 500' and 1000' depth complete with casing installed to compare. please see below:<br>1. Depth of Well: 500'<br>- Size of finished Hole: 24\"<br>- Size of Casing: 16\"<br>- Est. Cost: <b>Use $1,500 per ft </b><br>2. Depth of Well: 1,000'<br>- Size of finished Hole: 24\"<br>- Size of Casing: 16\"<br>- Est. Cost: <b>Use $1970 per ft</b><br>- Larger or smaller diameter and depth of wells are proportional to relative quotes above.",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "4",
+     "PV",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "5",
+     "General Plan Update",
+     "",
+     "",
+     "",
+     "- Kauai County General Plan last updated March 5, 2018. The Planning Department must undertake comprehensive review and potential update of the General Plan every 10 years<br>- Next Update Tentatively: 2028",
+     "",
+     "",
+     "",
+     ""
+    ],
+    [
+     "6",
+     "Reservoir Maintenance &amp; Decommissioning",
+     "",
+     "",
+     "",
+     "Nan, Chad, and Case to visit site 5/27/26",
+     "",
+     "",
+     "",
+     ""
+    ]
+   ],
+   "hidden": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "id": "Weekly",
+   "name": "Weekly Progress",
+   "title": "WEEKLY PROJECT PROGRESS REPORT - Other Projects",
+   "updated": "2026-08-04",
+   "type": "tracker",
+   "columns": [
+    "PROJECT",
+    "STATUS",
+    "LOCATION",
+    "PROGRESS"
+   ],
+   "rows": [
+    [
+     "<b>1500 KAPIOLANI</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "1. Let Matt know we still interest.<br>2. Offer fall through<br>3. Final and best round offer submitted 3/18<br>4. Wyeth to follow up with Matt by 12/23/2025<br>5. Met with Tradewind week of 3/31/26, discussed lender positions<br>6. Spoke to new potential broker regarding 1500; will touchbase - <span class=\"upd\">Wyeth to follow up with Anthony; signed on 4/17/2026</span><br>- <span class=\"upd\">Wyeth spoke to Anthony last week (week of 7/1/2026) - no updates</span><br>- <span class=\"upd\">Meeting 8/4/2026</span>"
+    ],
+    [
+     "<b>KAPOLEI TOWN CENTER</b>",
+     "On Hold",
+     "<b>OAHU</b>",
+     "- <span class=\"upd\">Met 7/10/2026 morning - comps (double check copilot numbers)</span><br>- <span class=\"upd\">Development plan</span><br>- <span class=\"upd\">Nan said no.</span>"
+    ],
+    [
+     "<b>CHING PROPERTY - 1810 KAPIOLANI</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "1. Wyeth spoke with the Ching family 4/6/2026 regarding long-term lease to develop housing; <span class=\"upd\">Looking to schedule a meeting</span>"
+    ],
+    [
+     "<b>1830 KAPIOLANI</b>",
+     "On Hold",
+     "<b>OAHU</b>",
+     "1. Come back to us late September<br>2. Owner came back<br>3. Owner ok to close 10/20, $150,000 none refundable within 3 days after signing the PSA<br>4. It has been year, we still want small time of DD<br>5. $5.3M, close in 15 days (2006 was bought for $3.8M)<br>6. Sewer connection application submitted 6/23, approval letter received.<br>- Nan offered $4.5M, they countered with $5.25M - Nan not interested"
+    ],
+    [
+     "<b>1700 KALAKAUA</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "1. Offered $19M, Panda offered 19.5M<br>2. Still in DD with Panda - Panda cancelled offer<br>3. Nan wants to make an offer - 30 day DD (Leahna push for 60 days with 18M (phase 2), 30 day -15M?)<br>- Draft proforma<br>- Met 7/10/2026 morning (review DD)<br>- Site visit 7/21/2026 (Nan, Leahna, Micah, Fang)<br>- Research/Generate scenarios/concepts and performa<br>- <span class=\"upd\">DD extended to 8/7/26, Closing 8/14 or 17th - Micah is tracking</span>"
+    ],
+    [
+     "<b>DHHL INDUSTRY PARK PROJECT</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "1. 42 acres industry park: submitted RFQ, had an interview, awarded.<br>2. DHHL want to have weekly mtg<br>3. Schedule<br>4. Sun to send Micah RFP<br>5. Internal discussion on the PM prior to meeting on Thursday (10/9/25)<br>6. Christian working on financial performa<br>7. DA being reviewed by Chun Kerr<br>8. Need estimate for Malakole - Sun to follow up with Ed and Jay - Share our price with them<br>- DA comments submitted to DHHL;<span class=\"upd\"> Pending response</span><br>- Requested extension - received extension letter<br>- KD provided GC proposal - internal review; <span class=\"upd\">modify our own AIA</span>"
+    ],
+    [
+     "<b>KS - Puck's Alley</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "<span class=\"upd\">Schedule meeting to discuss project - Wyeth to Schedule</span>"
+    ],
+    [
+     "<b>GROVE FARM</b>",
+     "See other tab",
+     "<b>KAUAI</b>",
+     "Moved to Tab"
+    ],
+    [
+     "<b>KS - Kakaako</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "<span class=\"upd\">Follow up</span>"
+    ],
+    [
+     "<b>MANDARIN HOTEL SITE</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "1. Follow up in Sept, still doing the soil test<br>2. Met on 11/04, further investigation<br>3. Pre-service HECO application: not submitted<br>4. Call will be schedule after July 4th weekend<br>- Meeting week of 2/9/2026; Need proforma for use of site, new permit, best option is most likely condo/hotel, but would need to know what product is best as well as programming (rooms, size, etc, costs)<br>- Meet Wednesday, 2/4/2026, at 2PM to discuss program options<br>- Met with Tradewind week of 3/31/26, regarding background on lender positions; Wyeth to set up meeting with FHB - Pending schedule from FHB (Brian and George)<br>- Bid on clean up and soil"
+    ],
+    [
+     "<b>TPOK AH Units</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "- Look into Property Management - Walk through with Nishimoto on Thursday, 4/30/2026<br>- Nan is delivered letter to Esther today, 5/26/26<br>- Met with DPP on 6/9/2026<br>- Website that includes both AH and MH rentals"
+    ],
+    [
+     "<b>TPOK Market Units</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "Finalize pricing, select units, which ones to be furnished, marketing photos, etc."
+    ],
+    [
+     "<b>YMCA ALA MOANA</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "1. Will wait<br>2. Active, LOI submitted 6/30 <b>- OLD</b><br>3. YMCA dezoning the UA, eta 18 month – Monitor YMCA’s removal of UA; accepted as complete 3/30/26, <span class=\"upd\">now in agency review</span><br>4. Pre-service HECO application: submitted on 6/15, paid $5,000, check with HECO the timeframe, end of Dec 2025, pushed back (may not be completed by end of Dec) - Follow up mid-December 2025<br>5. Sewer connection - Application approved<br>6. Recieved HECO letters, right now no power, but going through upgrades (2027) and can connect to manhole<br>7. New LOI was submitted 4/27/2026, $35M<br>8. Pedestrian Bridge<span class=\"upd\"> - $26M: 17M from fed grant, 6M HH, rest from State</span><br>9. Look into design/concepts for this property - Design team wants to learn from Wei how to do programming/massing - Schedule meeting this friday, 6/26<br>- <span class=\"upd\">Wyeth made comments to Mark's comments on Walter's sheet</span>"
+    ],
+    [
+     "<b>Molokai Ranch</b>",
+     "Active",
+     "<b>MOLOKAI</b>",
+     "- Buying property for tax credits and donating lands to DHHL;<br>- <span class=\"upd\">Nan to schedule site visit with Patti;</span><br>- Siri working on financials<br>- <span class=\"upd\">OC16</span>"
+    ],
+    [
+     "<b>Maui Quarry - Hawaiian Cement</b>",
+     "Active",
+     "<b>MAUI</b>",
+     "- Jarred to provide background sheet - review and see what else is needed by this week, Leahna to set up separate meeting<br>- <span class=\"upd\">Need to file amendment</span><br>- <span class=\"upd\">Need to look at access</span><br>- <span class=\"upd\">Easement form - takes a very long time (per DLNR) </span><span class=\"upd\">-</span><span class=\"upd\"> approx. 1 year</span><br>- <span class=\"upd\">Schedule meeting with Jarred on the quarries - Follow up with Wyeth</span><br>- <span class=\"upd\">Internal meeting with dev team - then send to GP</span><br>- <span class=\"upd\">Set up meeting with Jarred - status of permits</span>"
+    ],
+    [
+     "<b>Maui Quarry - HC&amp;D</b>",
+     "Active",
+     "<b>MAUI</b>",
+     "- Jarred to provide background sheet - review and see what else is needed by this week, Leahnna to set up separate meeting; Wyeth to get back to Micah and Leahna on legal matters<br>- <span class=\"upd\">Need to file amendment;</span> <span class=\"upd\">talk to HC&amp;D about taking over current application</span><br>- <span class=\"upd\">Internal meeting with dev team - then send to GP: need to know when permit expires; schedule of process to redo</span><br>- <span class=\"upd\">Set up meeting with Jarred - status of permits</span>"
+    ],
+    [
+     "<b>COCONUT BEACH RESORT</b>",
+     "On Hold",
+     "<b>KAUAI</b>",
+     "1. Meet internally on Wednesday, 2/4/2026, at 2PM<br>2. Submit bid by 2/13/2026 - No stalking horse offer; will go to bid in March 2026 - continue discussion with Arena<br>- look at timeshare and fractional sales option; zoning that high end people might like<br>- Meeting on Thursday, 2/26/26 - need to know capacity for water and sewer, SHPD letter missing<br>- 3/6/2026: No stalking horse offer, no auction<br>- Call with Mark 3/19/2026<br>- Entered into 45 day DD with bidder - 4/17/2026? Confirm this date<br>- <span class=\"upd\">Get updates on this property</span>"
+    ],
+    [
+     "<b>GUAM MILITARY HOUSING/LEO PALACE</b>",
+     "Active",
+     "<b>GUAM</b>",
+     "1. RFP due by 10/20/2025 - Submitted<br>2. Continue working on DD material - Received response from broker with additional documents<br>- missing title report and lease agreement? Committment of title insurance was received, but not title report. This affects DD start date (still not started)<b>—</b>Leasing agreement received,<br>- Williams DD due 12/31/2025; Received additional documents (unrecorded) - Extension granted to end of March 2026<br>- Leo Palace DD due 1/22/2026 - start date wasn't agreed on - Follow up with Micah on DD<br>- Phase 1 release date will be late 2025/early 2026<br>- <span class=\"upd\">Phase 2 ETA June 2026 (pushed back from March)</span><br>3. Site plan with 596 units is ready - PDF Site plan provided<br>4. Permit extension - Permit in progress, application number received - Find out date of hearing/status<br>- Wei to schedule internal meeting with team to discuss business model, bullet points/tasks, etc.<br>5. Wei met with Nan to discuss pro forma<br>6. Received short list letter - Establish consulting firms including DPI, InSynergy, WSP Kim - civil Chad McDonald, WWTP WSI<br>7. Met with DPI- Friday, 1/30/2026: DPI to provide preliminary plan by end of next week 2/13/2026 - Received concept layout from DPI last week. Wei to send back comments by end of today, 2/10/2026; Nan cost estimating team is working on cost. <span class=\"upd\">Continue working on Master Planning until Phase 2</span><br>- Meeting Friday, 3/20/2026 at DPI<br>- <span class=\"upd\">Work on project financing (worked on by ASB) - Still waiting on Financial Feedback</span><br>- <span class=\"upd\">Still waiting on 2nd RFP.</span><br>- PSA needs to have a contingency that we don't buy the property unless we win the bid<br>- Leahnna to follow up with Micah on response - Micah responded<br>- Met with brokers on 6/12/2026 to discuss PSA<br>- <span class=\"upd\">Wei to provided narrative of what has been done up to date</span>"
+    ],
+    [
+     "<b>Villages of Laiopua 4 Hema (30 Units)</b>",
+     "Active",
+     "<b>BIG ISLAND</b>",
+     "- Leahna working on closing finance (30 units)<br>- GMP Contract review - Wyeth to review"
+    ],
+    [
+     "<b>WAIMEA - PARKER RANCH</b>",
+     "Active",
+     "<b>BIG ISLAND</b>",
+     "- Provide price/information on residential and industrial lands week of 2/17/2026<br>- <span class=\"upd\">Meet 7/10/2026 morning </span>"
+    ],
+    [
+     "<b>1958 Kalakaua LLC MacNaughton</b>",
+     "Terminated",
+     "<b>OAHU</b>",
+     "- Terminated<br>- Signed PSA today, 3/10/2026<br>- Due Dilligence Deadline: 4/24/2026<br>- Pending meeting with DPP- 4/2/2026 (Need to confirm) on resort map - Leahna to follow up<br>- Nan to have discussion with Ian on utility costs<br>- Team to continue DD review<br>- 4/1/2026 Meeting with Electrical at 2PM<br>- <span class=\"upd\">Nan offered $35M, need to follow up with Anthony</span><br>- <span class=\"upd\">Update proforma - include lending information (Leahna)</span><br>- <span class=\"upd\">Study Air B&amp;B </span>"
+    ],
+    [
+     "<b>CASTLE &amp; COOKE</b>",
+     "Active",
+     "<b>OAHU</b>",
+     "- Met with Castle &amp; Cooke last week, they are thinking of selling; Wyeth to follow up with them<br>- <span class=\"upd\">Pending meeting to be scheduled</span>"
+    ],
+    [
+     "<b>PARCEL 7 &amp; 9 IN KUNIA</b>",
+     "On Hold",
+     "<b>OAHU</b>",
+     "- The work is the result of more than 15 years of master planning, initially aimed at providing military housing and facilities. However, Lendlease repositioned the project to focus on the housing crises in Hawaii, specifically affordable housing. Regardless, the plan retains options for the military to secure housing in the estate, and Lendlease regularly updates the Pentagon on progress. The entitlement route has been negotiated with various government agencies in Hawaii and will follow the 201H Affordable Housing pathway with HHFDC nominated to receive and manage the application.<br><br>- The capital cost to service more than 8,200 units is high and demands a strategic and long-term commitment to the project. Lendlease therefore prepared an alternative approach, which offers a more lucrative return on investment in a shorter time frame. The approach retains the agricultural use, arguably the second highest priority in Hawaii, but in a small lot (minimum 5 acres) subdivision approach.<br><br>- The attached briefing notes presents both an Affordable Housing estate and a Small Lot Agricultural Subdivision over Parcel 9. It addresses the project approach and expected financial returns. The intent of presenting the information is to seek local partners to participate in either of the development options. This will be secured through an EOI process, should you wish to participate beyond our initial briefing.<br><br>- Please contact me should you wish to discuss the project outcomes presented in the attached briefing papers. Our intent is to release the EOI today. Therefore, also advise if you wish to receive an EOI invitation letter.<br>- Char to follow up with Sun<br>- Team to review and discuss 12/30/2025<br>- <span class=\"upd\">Possible industrial parcel development</span>"
+    ],
+    [
+     "<b>1159 &amp; 1157 KAPIOLANI SITES (NATHAN FUNG)</b>",
+     "On Hold",
+     "<b>OAHU</b>",
+     "TMK: Hold"
+    ],
+    [
+     "<b>C&amp;C RFQ HOUSING DEVELOPMENT</b>",
+     "Terminated",
+     "<b>ROYAL KUNIA</b>",
+     "- Terminated<br>1. RFP due by 11/14/2025<br>2. Sun working on Site Plan design - Patti wants to be involved; Discuss with Nan<b> - </b>Nan does not think it's a good idea to go for C&amp;C projects"
+    ],
+    [
+     "<b>KAHALA</b>",
+     "On Hold",
+     "<b>OAHU</b>",
+     "1. Site visit 11/20/2025<br>2. December (before Christmas) 2025 - Proposal<br>3. Presented to Jeff on 12/29/2025<br>- Jeff will get back to us on resort joint development or JD with equity/contractor position<br>- Other option is to purchase for $400-500M<br>- 2/3/2026 No response from Jeff"
+    ],
+    [
+     "<b>ELEMENT KAPOLEI HOTEL JV</b>",
+     "Terminated",
+     "<b>OAHU</b>",
+     "1. Called with western estate, No interest in JV<br>2. NO JV, possible GC work, will work on cost estimation by July"
+    ],
+    [
+     "<b>FRED'S SITE</b>",
+     "Terminated",
+     "<b>OAHU</b>",
+     "- Terminated<br>- TMK: They signed our LOI on June 5, 2025.  DD is 120 days from acceptance of LOI and receipt of all DD materials which at the earliest is October 3, 2025.  Follow up with Micah<br>1. Need to get entry permit from the seller and schedule a site visit to meet with the tenants<br>2. Pre-service HECO application: submitted on 6/15<b> - </b>Min, Follow up mid-December 2025<br>3. Sewer connection application submitted 6/23, received approval<br>4. DD material received, under review.<br>5. Need to send owner a list of documents we need<br>6. Need to know the carry cost, rental income and expense. Lease term, etc."
+    ],
+    [
+     "<b>COURTYARDS AT WAIPOULI - RENOVATION</b>",
+     "Active",
+     "<b>KAUAI</b>",
+     "1. Sent contract to AHL. Contract and financing finalized<br>- a. Reserved two 2-bedroom units for the workers<br>- b. Containers for stored materials<br>- c. <b>Alex to PM, Fang assist</b><br>- <b>Weekly OAC meeting starting week of 1/20/2026:</b> Tuesdays @9am- Mark Development (Craig and Mark) (project owner), Jeff from Architects Hawaii, Christian and Sun as CM, Alex &amp; Fang from Nan<br>- 4/7/26 Alex Updates:<br>- Last week submitted full construction schedule; start June 2026, projected to end first week of September 2027<br>- Mtg with Christian and Sun 4/8/26 - they want to be done by August 2027<br>- Material Procurement - full review of items that need to be replaced will be discussed in mtg 4/8/26<br>- Storage: occupy 3 units on the property for smaller materials/field office; larger materials will be stored in a container (purchased by Nan) at a laydown area<br>- Field office TBD - potentially management and staff there; 4-5 field guys<br>- Working on executing subcontracts: Painting, plumbing, electrical, AC; everything else will be self-performed<br>- <span class=\"upd\">4/13/26: Christian asked if we could start sooner, so team submitted a revised schedule with work starting on 5/18</span><br>2. Work tentative start 2/2026 - NTP effective February 1, 2026<br>3. HHFDC approved DURF loan on May 8, 2025  Getting ready for financial closing / Need to get building permit.<br>4. Waiting for the financial closing and further instructions from the developer. (3/25)<br>5. Adjusted budgets and made a few design modifications as follows:<br>- a. Number of units to renovate: 41 → 38<br>- b. Addition of a sensory unit<br>- c. Budget adjustment: $3,690,000 → $4,206,600 for interior renovation<br>- d. Adding three curb cuts for wheelchair access<br>6. Site visit is scheduled to take place on Feb 19: rescheduled to Feb 27 (requested by the management office) → Site visit was confirmed. May require 2 days to complete.<br>7. Site visit conducted on 27 and walked through 6 units. Conditions are generally similar. Need to revise some work scope and check with estimator for potential price difference.<br>8. Need to provide GC’s executive officers information to the lender (HUD) : Individual information / Certification and eSignature authorization<br>- a. Sun, Dalyn (property manager), Jeanie Tavares (GP staff on Kauai), PM (need to be assigned)<br>→ Need to follow up with Jeanie on her software installation for construction management<br>→ IT desk provided Autodesk Build program to Jeanie (2/4)<br>- b. The final scope of work will be adjusted according to the results<br>9. Construction is expected to begin in June or July- First unit expected to be ready May 2026"
+    ],
+    [
+     "<b>KALAMAULA KUPUNA HOUSING</b>",
+     "On Hold",
+     "<b>MOLOKAI</b>",
+     "On hold"
+    ],
+    [
+     "<b>LAND AT WAIKOLOA - MAUI ROCK</b>",
+     "See other tab",
+     "<b>BIG ISLAND, KONA</b>",
+     "- TMK: 6-8-01-67, 934.66 acres<br>1. See excel spreadsheet"
+    ],
+    [
+     "<b>RFQ – DLM-25-01</b><br><b>PENSACOLA</b>",
+     "Terminated",
+     "<b>HONOLULU, OAHU</b>",
+     "1. Awarded Pensacola project on May 9. 1421 Pensacola: awarded; Revised DA back by first week of November 2025; <span class=\"upd\">Schedule to meet with City and have financials ready</span><br>- <span class=\"upd\">Nan is going to meet with County; after will receive direction on how to move forward</span><br>2. Start working on the concept design, architect: Link Lab<br>3. Working on the draft DA and lease agreement from City<br>4. At least 20 units, 5 per floor; 8 parking stalls - Redesign: 2 parking stalls, 1 for rideshare<br>5. Sun to get updated quote for modular - <span class=\"upd\">Waiting for estimate; stackable modular - Expecting pricing from 3 manufacturers by end of this week</span><br>6. Site logistics, crane logistics, open lot behind site - Sun to contact owner of open lot behind; roughly 50 containers<br>- Sun said no response from Kevin Auger - Wyeth sent email to Kevin, no response as of 1/13/2026; <span class=\"upd\">will follow up again</span><br>7. Need another extension from City, expires end of January 2026 - <span class=\"upd\">terminated</span><br>- <span class=\"upd\">3/24/26 Sun: This project has been canceled by the City and County.</span>"
+    ],
+    [
+     "<b>ROSS SITE</b>",
+     "On Hold",
+     "<b>OAHU</b>",
+     "Offer sent mid May, they will do food hall"
+    ],
+    [
+     "<b>WAIANAE HOMESTEAD</b>",
+     "On Hold",
+     "<b>OAHU</b>",
+     "- 96 UNITS, DHHL Hawaiian homestead kupuna housing, WAIANAE<br>1. On hold<br>2. KD (Patti) wants to move forward with this project<br>3. 6-story building"
+    ]
+   ],
+   "hidden": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  }
+ ]
+}</script>
+<script>
+'use strict';
+let DATA=null, cur=0, selRow=-1, dirtySheets=new Set(), anyDirty=false;
+let filters={upd:false,high:false,hideDone:false};
+let editMode=false;
+function setMode(on){editMode=on;document.body.classList.toggle('editmode',on);
+  $('#modeBadge').textContent=on?'EDITING':'VIEW ONLY';
+  $('#btnMode').textContent=on?'🔒 Lock':'✎ Edit';
+  renderAll();}
+function ensureHidden(s){if(!Array.isArray(s.hidden))s.hidden=[];
+  while(s.hidden.length<s.rows.length)s.hidden.push(false);
+  if(s.hidden.length>s.rows.length)s.hidden.length=s.rows.length;
+  return s.hidden;}
+function numLevel(txt){
+  const t=String(txt||'').trim();
+  if(!t)return 0;
+  const segs=t.split('.').filter(x=>x!=='');
+  if(segs.length<2||!/^\d/.test(segs[0]))return 0;
+  return Math.min(segs.length-1,2);}
+const collapsedAll={};
+const $=s=>document.querySelector(s);
+const CFG_KEY='devtracker_cfg';
+let cfg=JSON.parse(localStorage.getItem(CFG_KEY)||'null');
+let lastKnownSha=null;
+// Team access link: #setup=... auto-configures this browser once
+(function(){
+  const m=location.hash.match(/#setup=([A-Za-z0-9+/=_-]+)/);
+  if(m){try{
+    const decoded=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));
+    if(decoded&&decoded.token&&decoded.owner&&decoded.repo){
+      cfg=decoded;localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
+      history.replaceState(null,'',location.pathname+location.search);
+    }
+  }catch(e){}}
+})();
+
+/* ===== undo / redo ===== */
+const undoStack=[], redoStack=[]; const UNDO_MAX=80;
+let savedStr='';               // DATA as last loaded/saved — for dirty recompute
+let savedSheetMap={};          // sheet id -> stringified sheet at last save
+function rememberSaved(){savedStr=JSON.stringify(DATA);
+  savedSheetMap={};DATA.sheets.forEach(s=>savedSheetMap[s.id]=JSON.stringify(s));}
+function snapshot(){undoStack.push({json:JSON.stringify(DATA),cur});
+  if(undoStack.length>UNDO_MAX)undoStack.shift();
+  redoStack.length=0;updateUndoButtons();}
+function recomputeDirty(){
+  dirtySheets.clear();
+  DATA.sheets.forEach(s=>{if(savedSheetMap[s.id]!==JSON.stringify(s))dirtySheets.add(s.id);});
+  anyDirty=JSON.stringify(DATA)!==savedStr;
+  document.body.classList.toggle('dirty',anyDirty);
+}
+function applyState(st){
+  DATA=JSON.parse(st.json);
+  cur=Math.min(st.cur,DATA.sheets.length-1);selRow=-1;
+  recomputeDirty();renderAll();
+}
+function undo(){if(!undoStack.length){toast('Nothing to undo');return;}
+  redoStack.push({json:JSON.stringify(DATA),cur});
+  applyState(undoStack.pop());updateUndoButtons();toast('Undone');}
+function redo(){if(!redoStack.length){toast('Nothing to redo');return;}
+  undoStack.push({json:JSON.stringify(DATA),cur});
+  applyState(redoStack.pop());updateUndoButtons();toast('Redone');}
+function updateUndoButtons(){$('#btnUndo').disabled=!undoStack.length;$('#btnRedo').disabled=!redoStack.length;}
+
+function toast(msg,ms=2600){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms);}
+function status(msg,cls){const el=$('#stMsg');el.textContent=msg;el.className=cls||'';}
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function escText(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function plainText(html){const d=document.createElement('div');d.innerHTML=String(html).replace(/<br\s*\/?>/gi,'\n');return d.textContent||'';}
+
+/* ===== sanitize ===== */
+function isRedColor(c){if(!c)return false;c=c.replace(/\s/g,'').toLowerCase();
+  if(c.startsWith('#')){let h=c.slice(1);if(h.length===3)h=h.split('').map(x=>x+x).join('');
+    const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return r>150&&g<90&&b<90;}
+  const m=c.match(/rgba?\((\d+),(\d+),(\d+)/);if(m)return +m[1]>150&&+m[2]<90&&+m[3]<90;
+  return c==='red';}
+function sanitizeNode(node,out){
+  if(node.nodeType===3){out.push(node.nodeValue.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));return;}
+  if(node.nodeType!==1)return;
+  const tag=node.tagName.toLowerCase();
+  if(tag==='br'){out.push('<br>');return;}
+  if(tag==='style'||tag==='script')return;
+  const style=node.getAttribute&&node.getAttribute('style')||'';
+  const colorMatch=style.match(/color:\s*([^;]+)/i);
+  const red=(node.classList&&node.classList.contains('upd'))||(colorMatch&&isRedColor(colorMatch[1]))||(tag==='font'&&isRedColor(node.getAttribute('color')||''));
+  const bold=tag==='b'||tag==='strong'||/font-weight:\s*(bold|[6-9]00)/i.test(style);
+  const block=/^(div|p|li|tr|h[1-6])$/.test(tag);
+  let open='',close='';
+  if(red){open='<span class="upd">';close='</span>';}
+  else if(bold){open='<b>';close='</b>';}
+  if(block&&out.length&&!/(<br>)$/.test(out.join('').slice(-8)))out.push('<br>');
+  out.push(open);
+  node.childNodes.forEach(ch=>sanitizeNode(ch,out));
+  out.push(close);
+}
+function sanitizeHTML(el){const out=[];el.childNodes.forEach(n=>sanitizeNode(n,out));
+  let h=out.join('');
+  h=h.replace(/(<br>\s*)+$/,'').replace(/^(\s*<br>)+/,'');
+  // split formatting that spans across line breaks so every line is self-contained
+  let prev;
+  do{prev=h;
+    h=h.replace(/<span class="upd">([^<]*)<br>/g,'<span class="upd">$1</span><br><span class="upd">');
+    h=h.replace(/<b>([^<]*)<br>/g,'<b>$1</b><br><b>');
+  }while(h!==prev);
+  // unwrap whitespace-only formatting, keeping the whitespace itself
+  h=h.replace(/<span class="upd">(\s*)<\/span>/g,'$1').replace(/<b>(\s*)<\/b>/g,'$1');
+  // canonical: no trailing spaces at line ends
+  h=h.replace(/[ \t\u00a0]+(<br>)/g,'$1').replace(/[ \t\u00a0]+$/,'');
+  return h;}
+
+/* ===== note structure (unified bullet levels) =====
+   canonical stored format, one <br>-separated line each:
+   "- "  plain item · "→ " follow-up/result (indented) · "1." numbered section */
+const RE_ARROW=/^(?:-{1,2}\s*(?:&gt;|>)|→|—\s*(?:&gt;|>))\s*/;
+const RE_NUM=/^(\d+(?:\.\d+)*[.)])\s*/;
+const RE_DASH=/^[-–—*•·]+\s*/;
+function normLine(line){
+  let l=line.replace(/^(?:\s|&nbsp;)+/,'').replace(/(?:\s|&nbsp;)+$/,'');
+  if(l==='')return '';
+  const m=l.match(/^((?:<[^>]+>)*)([\s\S]*)$/);
+  let tags=m[1],rest=m[2].replace(/^(?:\s|&nbsp;)+/,'');
+  let level=0,num='';
+  for(;;){
+    if(RE_ARROW.test(rest)){rest=rest.replace(RE_ARROW,'');level=2;continue;}
+    if(level===0&&num===''&&RE_NUM.test(rest)){num=rest.match(RE_NUM)[1];rest=rest.replace(RE_NUM,'');continue;}
+    if(RE_DASH.test(rest)){rest=rest.replace(RE_DASH,'');if(level<1)level=1;continue;}
+    break;
+  }
+  rest=rest.replace(/^(?:\s|&nbsp;)+/,'');
+  let content=(tags+rest).replace(/\*{2,}\s*$/,'');
+  content=content.replace(/<span class="upd">\s*<\/span>/g,'').replace(/<b>\s*<\/b>/g,'');
+  content=content.replace(/^(?:\s|&nbsp;)+/,'');
+  const bare=content.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+  if(bare===''&&num==='')return '';
+  if(level===2)return '→ '+content;
+  if(num)return num+' '+content;
+  return '- '+content;
+}
+function normalizeNotes(html){
+  if(!html)return html;
+  const lines=String(html).split(/<br\s*\/?>/i);
+  if(lines.length<2)return html;
+  const out=lines.map(normLine);
+  while(out.length&&out[0]==='')out.shift();
+  while(out.length&&out[out.length-1]==='')out.pop();
+  return out.join('<br>');
+}
+function renderNotes(html){
+  if(!html)return '';
+  const lines=String(html).split(/<br\s*\/?>/i);
+  if(lines.length<2)return html;
+  return lines.map(line=>{
+    let cls='nl nl-item',content=line;
+    if(line==='')            {cls='nl nl-gap';content='';}
+    else if(line.startsWith('→ ')){cls='nl nl-sub';content=line.slice(2);}
+    else if(line.startsWith('- ')){cls='nl nl-item';content=line.slice(2);}
+    else if(/^\d/.test(line)){cls='nl nl-num';
+      content=line.replace(/^(\d+(?:\.\d+)*[.)])\s*/,'<span class="num">$1</span> ');}
+    return `<div class="${cls}">${content||'<br>'}</div>`;
+  }).join('');
+}
+function serializeNotes(el){
+  const clone=el.cloneNode(true);
+  Array.from(clone.children).forEach(div=>{
+    if(div.tagName!=='DIV')return;
+    const cls=div.className||'';
+    let prefix='- ';
+    if(/nl-sub/.test(cls))prefix='→ ';
+    else if(/nl-num/.test(cls)||/nl-gap/.test(cls))prefix='';
+    if(prefix)div.insertBefore(el.ownerDocument.createTextNode(prefix),div.firstChild);
+  });
+  return normalizeNotes(sanitizeHTML(clone));
+}
+
+/* ===== column mapping ===== */
+function mapCols(s){
+  const C=s.columns;
+  const find=re=>C.findIndex(c=>re.test(String(c).trim()));
+  const num=find(/^no\.?$/i);
+  let prio=find(/^priority$/i), prioList='priority';
+  const prog=find(/progress$/i);
+  let body=prog;
+  if(prio<0){const st=find(/^status$/i);
+    if(st>=0&&prog>=0){prio=st;prioList='status';}}
+  if(body<0){const st=find(/^status$/i);if(st!==prio)body=st;}
+  let title=find(/description|^project$/i);
+  if(title<0)title=C.findIndex((c,i)=>i!==num);
+  const meta=C.map((c,i)=>i).filter(i=>i!==num&&i!==prio&&i!==body&&i!==title);
+  return {num,prio,prioList,body,title,meta};
+}
+function badgeClass(v){
+  if(v==='High')return 'b-High';
+  if(v==='Medium')return 'b-Medium';
+  if(/compl/i.test(v))return 'b-Complete';
+  if(v==='Active')return 'b-Active';
+  if(/hold/i.test(v))return 'b-Hold';
+  return '';
+}
+function borderClass(v){
+  if(v==='High')return 'pri-High';
+  if(v==='Medium')return 'pri-Medium';
+  if(/compl/i.test(v)||v==='Active')return 'pri-Complete';
+  return '';
+}
+
+/* ===== render ===== */
+function sheet(){return DATA.sheets[cur];}
+function markDirty(){dirtySheets.add(sheet().id);anyDirty=true;document.body.classList.add('dirty');
+  const t=document.querySelectorAll('.tab')[cur];if(t)t.classList.add('is-dirty');}
+
+function renderTabs(){
+  const nav=$('#tabs');nav.innerHTML='';
+  DATA.sheets.forEach((s,i)=>{
+    const b=document.createElement('button');
+    b.className='tab'+(i===cur?' active':'')+(dirtySheets.has(s.id)?' is-dirty':'');
+    b.innerHTML=escText(s.name)+'<span class="tdirty">●</span>';
+    b.onclick=()=>{cur=i;selRow=-1;renderAll();window.scrollTo(0,0);};
+    nav.appendChild(b);
+  });
+  const add=document.createElement('button');add.className='tab-add';add.textContent='＋';
+  add.title='Add a project tab';add.onclick=addSheet;nav.appendChild(add);
+}
+
+function renderList(){
+  const s=sheet(), M=mapCols(s);
+  const list=$('#list');
+  let h='';
+  const hid=ensureHidden(s);
+  s.rows.forEach((row,ri)=>{
+    const prioVal=M.prio>=0?plainText(row[M.prio]).trim():'';
+    const hasUpd=row.some(c=>String(c).includes('class="upd"'));
+    const collapsed=collapsedAll[s.id];
+    const lv=M.num>=0?numLevel(plainText(row[M.num])):0;
+    h+=`<article class="task ${borderClass(prioVal)} ${hasUpd?'has-upd':''} ${collapsed?'collapsed':''} ${ri===selRow?'sel':''} ${lv?'lv'+lv:''} ${hid[ri]?'is-hidden':''}" data-ri="${ri}">
+      <div class="task-head">
+        <span class="tnum" data-ri="${ri}" title="Select this task">${M.num>=0?(escText(plainText(row[M.num]))||ri+1):ri+1}</span>
+        <div class="ttitle field" contenteditable="${editMode&&!hid[ri]?'true':'false'}" data-ri="${ri}" data-ci="${M.title}">${row[M.title]||''}</div>`;
+    if(M.prio>=0){
+      const opts=(DATA.lists&&DATA.lists[M.prioList]||[]).slice();
+      if(prioVal&&!opts.includes(prioVal))opts.unshift(prioVal);
+      h+=`<select class="badge ${badgeClass(prioVal)}" ${(!editMode||hid[ri])?'disabled':''} data-ri="${ri}" data-ci="${M.prio}">
+        <option value="">— set —</option>${opts.map(o=>`<option ${o===prioVal?'selected':''}>${escText(o)}</option>`).join('')}</select>`;
+    }
+    if(hid[ri]){
+      h+=`<div class="task-actions">
+        <button data-act="hide" data-ri="${ri}" class="btn-unhide" title="Resume tracking this task">↩ Unhide</button>
+      </div></div>`;
+    }else{
+      h+=`<div class="task-actions">
+        <button data-act="insert" data-ri="${ri}" title="Insert a task below">＋</button>
+        <button data-act="up" data-ri="${ri}" title="Move up">↑</button>
+        <button data-act="down" data-ri="${ri}" title="Move down">↓</button>
+        <button data-act="hide" data-ri="${ri}" title="Hide this task (grayed out, not editable)">⊘</button>
+        <button data-act="del" data-ri="${ri}" class="del" title="Delete task">✕</button>
+      </div></div>`;
+    }
+    if(!hid[ri]&&M.meta.length){
+      h+=`<div class="tmeta">`;
+      M.meta.forEach(ci=>{
+        h+=`<span class="mfield"><label>${escText(s.columns[ci])}</label><span class="mval field" contenteditable="${editMode?'true':'false'}" data-ri="${ri}" data-ci="${ci}">${row[ci]||''}</span></span>`;
+      });
+      h+=`</div>`;
+    }
+    if(!hid[ri]&&M.body>=0){
+      h+=`<div class="tbody-wrap"><div class="tbody field" contenteditable="${editMode?'true':'false'}" data-ri="${ri}" data-ci="${M.body}" data-notes="1">${renderNotes(row[M.body]||'')}</div></div>
+      <button class="tcollapse" data-act="toggle" data-ri="${ri}">${collapsed?'▸ EXPAND':'▾'}</button>`;
+    }
+    h+=`</article>`;
+  });
+  h+=`<button class="addtask" id="btnAddEnd">＋ Add task</button>`;
+  if(!s.rows.length)h=`<div class="emptymsg">No tasks yet.</div>`+h;
+  list.innerHTML=h;
+  $('#tbRows').textContent=s.rows.length;
+  $('#tbUpdated').textContent=s.updated||'—';
+  bindList();
+  applyFilters();
+}
+function renderAll(){renderTabs();renderList();
+  $('#btnCollapseAll').textContent=collapsedAll[sheet().id]?'Expand all':'Collapse all';}
+
+/* ===== events ===== */
+function bindList(){
+  const list=$('#list');
+  list.querySelectorAll('.field').forEach(el=>{
+    el.addEventListener('blur',()=>{
+      const ri=+el.dataset.ri,ci=+el.dataset.ci;
+      let clean=el.dataset.notes?serializeNotes(el):sanitizeHTML(el);
+      if(clean!==sheet().rows[ri][ci]){snapshot();sheet().rows[ri][ci]=clean;markDirty();
+        const card=el.closest('.task');
+        if(card)card.classList.toggle('has-upd',sheet().rows[ri].some(c=>String(c).includes('class="upd"')));}
+      el.innerHTML=el.dataset.notes?renderNotes(clean):clean;
+    });
+    el.addEventListener('paste',e=>{
+      e.preventDefault();
+      const t=(e.clipboardData||window.clipboardData).getData('text/plain');
+      document.execCommand('insertText',false,t);
+    });
+    el.addEventListener('focus',()=>{selRow=+el.dataset.ri;highlightSel();});
+  });
+  list.querySelectorAll('select.badge').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const ri=+el.dataset.ri,ci=+el.dataset.ci;
+      snapshot();sheet().rows[ri][ci]=escText(el.value);markDirty();
+      el.className='badge '+badgeClass(el.value);
+      const card=el.closest('.task');
+      card.classList.remove('pri-High','pri-Medium','pri-Complete');
+      const bc=borderClass(el.value);if(bc)card.classList.add(bc);
+      applyFilters();
+    });
+  });
+  list.querySelectorAll('.tnum').forEach(el=>{
+    el.addEventListener('click',()=>{const ri=+el.dataset.ri;selRow=selRow===ri?-1:ri;highlightSel();});
+  });
+  list.querySelectorAll('[data-act]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const act=el.dataset.act, ri=+el.dataset.ri, s=sheet();
+      if(act==='insert'){snapshot();ensureHidden(s);s.rows.splice(ri+1,0,s.columns.map(()=>''));s.hidden.splice(ri+1,0,false);markDirty();renderList();
+        const t=document.querySelector(`.task[data-ri="${ri+1}"] .ttitle`);if(t)t.focus();}
+      else if(act==='del'){
+        const M=mapCols(s);
+        const preview=plainText(s.rows[ri][M.title]||'').slice(0,50);
+        if(confirm(`Delete this task?\n"${preview}"`)){snapshot();ensureHidden(s);s.rows.splice(ri,1);s.hidden.splice(ri,1);selRow=-1;markDirty();renderList();}}
+      else if(act==='up'&&ri>0){snapshot();ensureHidden(s);[s.rows[ri-1],s.rows[ri]]=[s.rows[ri],s.rows[ri-1]];[s.hidden[ri-1],s.hidden[ri]]=[s.hidden[ri],s.hidden[ri-1]];markDirty();renderList();}
+      else if(act==='down'&&ri<s.rows.length-1){snapshot();ensureHidden(s);[s.rows[ri+1],s.rows[ri]]=[s.rows[ri],s.rows[ri+1]];[s.hidden[ri+1],s.hidden[ri]]=[s.hidden[ri],s.hidden[ri+1]];markDirty();renderList();}
+      else if(act==='hide'){snapshot();ensureHidden(s);s.hidden[ri]=!s.hidden[ri];markDirty();renderList();
+        toast(s.hidden[ri]?'Task hidden — grayed out and locked until you unhide it':'Task is being tracked again');}
+      else if(act==='toggle'){const card=el.closest('.task');card.classList.toggle('collapsed');
+        el.textContent=card.classList.contains('collapsed')?'▸ EXPAND':'▾';}
+    });
+  });
+  const addEnd=$('#btnAddEnd');
+  if(addEnd)addEnd.onclick=()=>{const s=sheet();snapshot();ensureHidden(s);s.rows.push(s.columns.map(()=>''));s.hidden.push(false);markDirty();renderList();
+    const t=document.querySelector(`.task[data-ri="${s.rows.length-1}"] .ttitle`);if(t){t.focus();t.scrollIntoView({block:'center'});}};
+}
+function highlightSel(){
+  document.querySelectorAll('.task').forEach(c=>c.classList.toggle('sel',+c.dataset.ri===selRow));
+}
+
+/* ===== filters ===== */
+function applyFilters(){
+  const q=$('#search').value.trim().toLowerCase();
+  const s=sheet(), M=mapCols(s);
+  document.querySelectorAll('.task').forEach(card=>{
+    const ri=+card.dataset.ri;const row=s.rows[ri];if(!row)return;
+    let show=true;
+    if(q)show=row.some(c=>plainText(c).toLowerCase().includes(q));
+    if(show&&filters.upd)show=row.some(c=>String(c).includes('class="upd"'));
+    const pv=M.prio>=0?plainText(row[M.prio]).trim():'';
+    if(show&&filters.high)show=pv==='High';
+    if(show&&filters.hideDone)show=!/compl|terminated/i.test(pv);
+    card.classList.toggle('hidden',!show);
+  });
+}
+$('#search').addEventListener('input',applyFilters);
+$('#fUpd').onclick=()=>{filters.upd=!filters.upd;$('#fUpd').classList.toggle('on',filters.upd);applyFilters();};
+$('#fHigh').onclick=()=>{filters.high=!filters.high;$('#fHigh').classList.toggle('on',filters.high);applyFilters();};
+$('#fHideDone').onclick=()=>{filters.hideDone=!filters.hideDone;$('#fHideDone').classList.toggle('on',filters.hideDone);applyFilters();};
+
+/* ===== formatting ===== */
+function inField(){const sel=window.getSelection();if(!sel.rangeCount)return null;
+  let n=sel.anchorNode;while(n&&n!==document){if(n.classList&&n.classList.contains('field'))return n;n=n.parentNode;}return null;}
+['btnMark','btnBold','btnUnmark'].forEach(id=>$('#'+id).onmousedown=e=>e.preventDefault());
+$('#btnMark').onclick=()=>{if(!inField()){toast('Select some text in a task first');return;}
+  document.execCommand('styleWithCSS',false,true);
+  document.execCommand('foreColor',false,'#C81E1E');
+  document.execCommand('bold',false,null);};
+$('#btnBold').onclick=()=>{if(!inField()){toast('Select some text first');return;}document.execCommand('bold',false,null);};
+$('#btnUnmark').onclick=()=>{if(!inField()){toast('Select some text first');return;}document.execCommand('removeFormat',false,null);};
+$('#btnClearSheet').onclick=()=>{
+  if(!confirm("Start a new week?\n\nAll red 'this week' marks on this tab will become plain text. Run this before each weekly meeting, then mark new updates in red."))return;
+  const s=sheet();let n=0;snapshot();
+  s.rows=s.rows.map(row=>row.map(cell=>{
+    const after=String(cell).replace(/<span class="upd">([\s\S]*?)<\/span>/g,'$1');
+    if(after!==cell)n++;return after;
+  }));
+  if(n){markDirty();renderList();}else{undoStack.pop();updateUndoButtons();}
+  toast(n?`Cleared red marks in ${n} field${n>1?'s':''}`:'No red marks on this tab');
+};
+$('#btnCollapseAll').onclick=()=>{
+  const id=sheet().id;collapsedAll[id]=!collapsedAll[id];
+  renderList();$('#btnCollapseAll').textContent=collapsedAll[id]?'Expand all':'Collapse all';
+};
+
+/* ===== manage ===== */
+function addSheet(){
+  const name=prompt('New project name:');if(!name||!name.trim())return;
+  snapshot();
+  const cols=['No.','Task Description','Priority','Start','Ends','Status','Due','AHJ','Responsible Party','Reference'];
+  DATA.sheets.push({id:'S'+Date.now(),name:name.trim(),title:name.trim()+' - Task Tracker',updated:today(),type:'tracker',columns:cols,rows:[cols.map(()=>'')]});
+  cur=DATA.sheets.length-1;selRow=-1;markDirty();renderAll();
+}
+$('#btnManage').onclick=()=>{
+  const s=sheet();
+  const act=prompt(
+`Manage "${s.name}" — enter a number:
+1 = Rename this tab
+2 = Delete this tab
+3 = Add a field
+4 = Remove a field
+5 = Rename a field
+6 = Set updated date to today`);
+  if(!act)return;
+  if(act==='1'){const n=prompt('New name:',s.name);if(n&&n.trim()){snapshot();s.name=n.trim();markDirty();renderAll();}}
+  else if(act==='2'){
+    if(DATA.sheets.length<=1){toast('Keep at least one tab');return;}
+    if(confirm(`Delete the entire "${s.name}" tab and its ${s.rows.length} tasks?`)){
+      snapshot();DATA.sheets.splice(cur,1);cur=Math.max(0,cur-1);anyDirty=true;document.body.classList.add('dirty');renderAll();}}
+  else if(act==='3'){const n=prompt('New field name:');if(n&&n.trim()){
+    snapshot();s.columns.push(n.trim());s.rows.forEach(r=>r.push(''));markDirty();renderList();}}
+  else if(act==='4'){const n=prompt(`Remove which field? Enter a number:\n${s.columns.map((c,i)=>(i+1)+' = '+c).join('\n')}`);
+    const p=parseInt(n)-1;if(p>=0&&p<s.columns.length&&confirm(`Remove "${s.columns[p]}" and all its data?`)){
+      snapshot();s.columns.splice(p,1);s.rows.forEach(r=>r.splice(p,1));markDirty();renderList();}}
+  else if(act==='5'){const n=prompt(`Rename which field? Enter a number:\n${s.columns.map((c,i)=>(i+1)+' = '+c).join('\n')}`);
+    const p=parseInt(n)-1;if(p>=0&&p<s.columns.length){
+      const nn=prompt('New field name:',s.columns[p]);
+      if(nn&&nn.trim()){snapshot();s.columns[p]=nn.trim();markDirty();renderList();}}}
+  else if(act==='6'){snapshot();s.updated=today();markDirty();renderList();}
+};
+
+/* ===== settings ===== */
+$('#btnMode').onclick=()=>{
+  if(editMode){setMode(false);toast('Locked — view only');return;}
+  if(!cfg||!cfg.token){toast('To edit and save, set up your GitHub token first (⚙ Settings)');$('#btnSettings').click();return;}
+  setMode(true);toast('Editing enabled');
+};
+$('#btnSettings').onclick=()=>{
+  if(cfg){$('#cfgOwner').value=cfg.owner||'';$('#cfgRepo').value=cfg.repo||'';
+    $('#cfgBranch').value=cfg.branch||'main';$('#cfgPath').value=cfg.path||'data.json';$('#cfgToken').value=cfg.token||'';}
+  $('#settingsOverlay').classList.add('open');
+};
+$('#cfgLink').onclick=()=>{
+  if(!cfg||!cfg.token||!cfg.owner||!cfg.repo){toast('Save the settings first, then copy the link');return;}
+  const payload=btoa(unescape(encodeURIComponent(JSON.stringify(cfg)))).replace(/\+/g,'-').replace(/\//g,'_');
+  const url=location.origin+location.pathname+'#setup='+payload;
+  const done=()=>toast('Team access link copied — share it privately; opening it once unlocks editing');
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(done).catch(()=>prompt('Copy this link:',url));}
+  else prompt('Copy this link:',url);
+};
+$('#cfgCancel').onclick=()=>$('#settingsOverlay').classList.remove('open');
+$('#settingsOverlay').addEventListener('click',e=>{if(e.target.id==='settingsOverlay')$('#settingsOverlay').classList.remove('open');});
+$('#cfgSave').onclick=()=>{
+  cfg={owner:$('#cfgOwner').value.trim(),repo:$('#cfgRepo').value.trim(),
+    branch:$('#cfgBranch').value.trim()||'main',path:$('#cfgPath').value.trim()||'Nan Development Tracker_data.json',
+    token:$('#cfgToken').value.trim()};
+  localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
+  $('#settingsOverlay').classList.remove('open');
+  $('#stMode').textContent=cfg.token?'GitHub configured':'local data';
+  toast('Settings saved (stored only in this browser)');
+  if(cfg.token&&!editMode)setMode(true);
+};
+
+/* ===== save ===== */
+function b64(str){return btoa(unescape(encodeURIComponent(str)));}
+function encPath(p){return String(p).split('/').map(encodeURIComponent).join('/');}
+$('#btnSave').onclick=async()=>{
+  if(!cfg||!cfg.token||!cfg.owner||!cfg.repo){toast('Set up your GitHub repository first (⚙ Settings)');$('#btnSettings').click();return;}
+  document.activeElement&&document.activeElement.blur();
+  const btn=$('#btnSave');btn.disabled=true;btn.textContent='Saving…';status('Saving to GitHub…');
+  try{
+    const t=today();
+    DATA.sheets.forEach(s=>{if(dirtySheets.has(s.id))s.updated=t;});
+    DATA.lastSaved=t;
+    const api=`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encPath(cfg.path)}`;
+    const H={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+    let sha=null;
+    const g=await fetch(`${api}?ref=${cfg.branch}&_=${Date.now()}`,{headers:H});
+    if(g.ok){sha=(await g.json()).sha;}
+    else if(g.status!==404){throw new Error('Could not read file — HTTP '+g.status);}
+    if(lastKnownSha&&sha&&sha!==lastKnownSha){
+      if(!confirm("Heads up: someone else saved changes after you opened this page.\nSaving now will overwrite their version.\n\nOK = overwrite anyway\nCancel = stop (then refresh the page to load their version first)")){
+        btn.disabled=false;btn.textContent='Save to GitHub';status('Save cancelled — refresh to load the latest version.');return;}
+    }
+    const body={message:'Update meeting minutes '+t,content:b64(JSON.stringify(DATA,null,1)),branch:cfg.branch};
+    if(sha)body.sha=sha;
+    const p=await fetch(api,{method:'PUT',headers:H,body:JSON.stringify(body)});
+    if(!p.ok){const err=await p.json().catch(()=>({}));throw new Error('HTTP '+p.status+' '+(err.message||''));}
+    const pr=await p.json().catch(()=>null);
+    if(pr&&pr.content&&pr.content.sha)lastKnownSha=pr.content.sha;
+    dirtySheets.clear();anyDirty=false;document.body.classList.remove('dirty');
+    rememberSaved();
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('is-dirty'));
+    $('#stSaved').innerHTML='<span class="ok">✓ saved '+new Date().toLocaleTimeString()+'</span>';
+    status('Saved. This app always loads the latest version via the GitHub API.');
+    $('#tbUpdated').textContent=sheet().updated||'—';
+    toast('✓ Saved to GitHub');
+  }catch(e){
+    status('Save failed: '+e.message,'err');
+    $('#stSaved').innerHTML='<span class="err">✗ save failed</span>';
+    toast('Save failed: '+e.message,5000);
+  }
+  btn.disabled=false;btn.textContent='Save to GitHub';
+};
+
+/* ===== export ===== */
+$('#btnExport').onclick=async()=>{
+  const act=prompt('Export / Restore — enter a number:\n1 = Download JSON backup\n2 = Export to Excel (.xlsx)\n3 = Restore a previous saved version (from GitHub history)');
+  if(act==='1'){
+    const blob=new Blob([JSON.stringify(DATA,null,1)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='minutes_backup_'+today()+'.json';a.click();
+  }else if(act==='2'){
+    if(typeof XLSX==='undefined'){toast('Excel library not loaded — check your connection');return;}
+    const wb=XLSX.utils.book_new();
+    DATA.sheets.forEach(s=>{
+      const aoa=[s.columns,...s.rows.map(r=>r.map(c=>plainText(c)))];
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      XLSX.utils.book_append_sheet(wb,ws,s.name.slice(0,31).replace(/[\\/?*\[\]]/g,' '));
+    });
+    XLSX.writeFile(wb,'Development_Tracker_'+today()+'.xlsx');
+  }else if(act==='3'){
+    await restoreVersion();
+  }
+};
+async function restoreVersion(){
+  if(!cfg||!cfg.token||!cfg.owner||!cfg.repo){toast('Set up GitHub in ⚙ Settings first');return;}
+  status('Loading version history…');
+  try{
+    const H={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+    const r=await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/commits?path=${encodeURIComponent(cfg.path)}&sha=${cfg.branch}&per_page=15`,{headers:H});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const commits=await r.json();
+    if(!commits.length){toast('No saved versions found');status('Ready');return;}
+    const lines=commits.map((c,i)=>`${i+1} = ${c.commit.author.date.slice(0,10)} ${c.commit.author.date.slice(11,16)} — ${c.commit.message.slice(0,50)}`);
+    const pick=prompt('Restore which version? Enter a number:\n(1 is the most recent save)\n\n'+lines.join('\n'));
+    if(!pick)return void status('Ready');
+    const idx=parseInt(pick)-1;
+    if(idx<0||idx>=commits.length){toast('Invalid number');status('Ready');return;}
+    const fr=await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encPath(cfg.path)}?ref=${commits[idx].sha}`,
+      {headers:{...H,'Accept':'application/vnd.github.raw+json'}});
+    if(!fr.ok)throw new Error('HTTP '+fr.status);
+    const old=await fr.json();
+    snapshot();
+    DATA=old;cur=Math.min(cur,DATA.sheets.length-1);selRow=-1;
+    DATA.sheets.forEach(ensureHidden);
+    recomputeDirty();renderAll();
+    status('Loaded version from '+commits[idx].commit.author.date.slice(0,16).replace('T',' '));
+    toast('Version loaded — review it, then click "Save to GitHub" to make it live (or Undo to cancel)',6000);
+  }catch(e){status('Could not load history: '+e.message,'err');toast('Could not load history: '+e.message,5000);}
+}
+
+/* ===== load ===== */
+async function loadData(){
+  if(cfg&&cfg.token&&cfg.owner&&cfg.repo){
+    try{
+      const r=await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encPath(cfg.path)}?ref=${cfg.branch}&_=${Date.now()}`,
+        {headers:{'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+      if(r.ok){const j=await r.json();lastKnownSha=j.sha;
+        DATA=JSON.parse(decodeURIComponent(escape(atob(String(j.content||'').replace(/\n/g,'')))));
+        $('#stMode').textContent='source: GitHub API (latest)';return;}
+    }catch(e){}
+  }
+  try{
+    const r=await fetch('Nan Development Tracker_data.json?_='+Date.now().toString());
+    if(r.ok){DATA=await r.json();$('#stMode').textContent=cfg&&cfg.token?'source: Pages file':'source: data.json';return;}
+  }catch(e){}
+  DATA=JSON.parse(document.getElementById('embeddedData').textContent);
+  $('#stMode').textContent='source: built-in snapshot (offline)';
+}
+window.addEventListener('beforeunload',e=>{if(anyDirty){e.preventDefault();e.returnValue='';}});
+$('#btnUndo').onclick=undo;
+$('#btnRedo').onclick=redo;
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();$('#btnSave').click();return;}
+  const inEdit=document.activeElement&&document.activeElement.classList&&document.activeElement.classList.contains('field');
+  if(inEdit)return; // let the browser's native undo handle typing inside a field
+  if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();undo();}
+  else if((e.metaKey||e.ctrlKey)&&(e.key.toLowerCase()==='y'||(e.shiftKey&&e.key.toLowerCase()==='z'))){e.preventDefault();redo();}
+});
+(async function(){
+  status('Loading…');
+  await loadData();
+  DATA.sheets.forEach(ensureHidden);
+  rememberSaved();
+  if(cfg&&cfg.token)setMode(true);else renderAll();
+  status('Ready · '+DATA.sheets.length+' project tabs');
+  if(!cfg)setTimeout(()=>toast('Viewing mode. Editors: use the team access link, or set up GitHub in ⚙ Settings.',5000),800);
+})();
+</script>
+</body>
+</html>
